@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["es2023", "webworker"]
+  },
+  "include": [],
+  "exclude": [],
+  "files": ["src/captions/worker/main.ts"]
+}

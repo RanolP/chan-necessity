@@ -1,0 +1,5551 @@
+{
+ "tensors": {
+  "l0.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     1773568,
+     2097152
+    ],
+    [
+     397312,
+     1048576
+    ],
+    [
+     4034560,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l0.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     1445888,
+     262144
+    ],
+    [
+     233472,
+     131072
+    ],
+    [
+     3870720,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l0.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     1708032,
+     65536
+    ],
+    [
+     364544,
+     32768
+    ],
+    [
+     4001792,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l0.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     5410816,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l0.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     5083136,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l0.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     5345280,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l0.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     15765504,
+     6291456
+    ],
+    [
+     8491008,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l0.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     14782464,
+     786432
+    ],
+    [
+     7507968,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l0.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     15568896,
+     196608
+    ],
+    [
+     8294400,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l0.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     23040000,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l0.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     22056960,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l0.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     22843392,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l0.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     0,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l0.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     4096,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l0.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     0,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l0.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     256,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l1.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     30871552,
+     2097152
+    ],
+    [
+     29495296,
+     1048576
+    ],
+    [
+     33132544,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l1.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     30543872,
+     262144
+    ],
+    [
+     29331456,
+     131072
+    ],
+    [
+     32968704,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l1.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     30806016,
+     65536
+    ],
+    [
+     29462528,
+     32768
+    ],
+    [
+     33099776,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l1.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     34508800,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l1.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     34181120,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l1.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     34443264,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l1.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     44863488,
+     6291456
+    ],
+    [
+     37588992,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l1.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     43880448,
+     786432
+    ],
+    [
+     36605952,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l1.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     44666880,
+     196608
+    ],
+    [
+     37392384,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l1.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     52137984,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l1.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     51154944,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l1.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     51941376,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l1.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     8192,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l1.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     12288,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l1.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     512,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l1.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     768,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l2.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     59969536,
+     2097152
+    ],
+    [
+     58593280,
+     1048576
+    ],
+    [
+     62230528,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l2.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     59641856,
+     262144
+    ],
+    [
+     58429440,
+     131072
+    ],
+    [
+     62066688,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l2.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     59904000,
+     65536
+    ],
+    [
+     58560512,
+     32768
+    ],
+    [
+     62197760,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l2.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     63606784,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l2.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     63279104,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l2.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     63541248,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l2.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     73961472,
+     6291456
+    ],
+    [
+     66686976,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l2.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     72978432,
+     786432
+    ],
+    [
+     65703936,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l2.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     73764864,
+     196608
+    ],
+    [
+     66490368,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l2.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     81235968,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l2.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     80252928,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l2.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     81039360,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l2.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     16384,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l2.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     20480,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l2.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     1024,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l2.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     1280,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l3.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     89067520,
+     2097152
+    ],
+    [
+     87691264,
+     1048576
+    ],
+    [
+     91328512,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l3.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     88739840,
+     262144
+    ],
+    [
+     87527424,
+     131072
+    ],
+    [
+     91164672,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l3.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     89001984,
+     65536
+    ],
+    [
+     87658496,
+     32768
+    ],
+    [
+     91295744,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l3.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     92704768,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l3.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     92377088,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l3.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     92639232,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l3.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     103059456,
+     6291456
+    ],
+    [
+     95784960,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l3.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     102076416,
+     786432
+    ],
+    [
+     94801920,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l3.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     102862848,
+     196608
+    ],
+    [
+     95588352,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l3.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     110333952,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l3.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     109350912,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l3.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     110137344,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l3.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     24576,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l3.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     28672,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l3.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     1536,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l3.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     1792,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l4.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     118165504,
+     2097152
+    ],
+    [
+     116789248,
+     1048576
+    ],
+    [
+     120426496,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l4.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     117837824,
+     262144
+    ],
+    [
+     116625408,
+     131072
+    ],
+    [
+     120262656,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l4.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     118099968,
+     65536
+    ],
+    [
+     116756480,
+     32768
+    ],
+    [
+     120393728,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l4.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     121802752,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l4.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     121475072,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l4.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     121737216,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l4.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     132157440,
+     6291456
+    ],
+    [
+     124882944,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l4.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     131174400,
+     786432
+    ],
+    [
+     123899904,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l4.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     131960832,
+     196608
+    ],
+    [
+     124686336,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l4.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     139431936,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l4.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     138448896,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l4.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     139235328,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l4.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     32768,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l4.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     36864,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l4.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     2048,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l4.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     2304,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l5.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     147263488,
+     2097152
+    ],
+    [
+     145887232,
+     1048576
+    ],
+    [
+     149524480,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l5.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     146935808,
+     262144
+    ],
+    [
+     145723392,
+     131072
+    ],
+    [
+     149360640,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l5.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     147197952,
+     65536
+    ],
+    [
+     145854464,
+     32768
+    ],
+    [
+     149491712,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l5.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     150900736,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l5.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     150573056,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l5.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     150835200,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l5.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     161255424,
+     6291456
+    ],
+    [
+     153980928,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l5.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     160272384,
+     786432
+    ],
+    [
+     152997888,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l5.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     161058816,
+     196608
+    ],
+    [
+     153784320,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l5.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     168529920,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l5.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     167546880,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l5.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     168333312,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l5.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     40960,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l5.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     45056,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l5.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     2560,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l5.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     2816,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l6.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     176361472,
+     2097152
+    ],
+    [
+     174985216,
+     1048576
+    ],
+    [
+     178622464,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l6.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     176033792,
+     262144
+    ],
+    [
+     174821376,
+     131072
+    ],
+    [
+     178458624,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l6.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     176295936,
+     65536
+    ],
+    [
+     174952448,
+     32768
+    ],
+    [
+     178589696,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l6.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     179998720,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l6.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     179671040,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l6.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     179933184,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l6.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     190353408,
+     6291456
+    ],
+    [
+     183078912,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l6.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     189370368,
+     786432
+    ],
+    [
+     182095872,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l6.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     190156800,
+     196608
+    ],
+    [
+     182882304,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l6.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     197627904,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l6.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     196644864,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l6.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     197431296,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l6.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     49152,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l6.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     53248,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l6.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     3072,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l6.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     3328,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l7.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     205459456,
+     2097152
+    ],
+    [
+     204083200,
+     1048576
+    ],
+    [
+     207720448,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l7.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     205131776,
+     262144
+    ],
+    [
+     203919360,
+     131072
+    ],
+    [
+     207556608,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l7.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     205393920,
+     65536
+    ],
+    [
+     204050432,
+     32768
+    ],
+    [
+     207687680,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l7.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     209096704,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l7.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     208769024,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l7.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     209031168,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l7.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     219451392,
+     6291456
+    ],
+    [
+     212176896,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l7.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     218468352,
+     786432
+    ],
+    [
+     211193856,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l7.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     219254784,
+     196608
+    ],
+    [
+     211980288,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l7.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     226725888,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l7.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     225742848,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l7.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     226529280,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l7.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     57344,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l7.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     61440,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l7.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     3584,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l7.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     3840,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l8.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     234557440,
+     2097152
+    ],
+    [
+     233181184,
+     1048576
+    ],
+    [
+     236818432,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l8.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     234229760,
+     262144
+    ],
+    [
+     233017344,
+     131072
+    ],
+    [
+     236654592,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l8.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     234491904,
+     65536
+    ],
+    [
+     233148416,
+     32768
+    ],
+    [
+     236785664,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l8.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     238194688,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l8.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     237867008,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l8.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     238129152,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l8.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     248549376,
+     6291456
+    ],
+    [
+     241274880,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l8.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     247566336,
+     786432
+    ],
+    [
+     240291840,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l8.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     248352768,
+     196608
+    ],
+    [
+     241078272,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l8.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     255823872,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l8.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     254840832,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l8.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     255627264,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l8.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     65536,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l8.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     69632,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l8.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     4096,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l8.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     4352,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l9.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     263655424,
+     2097152
+    ],
+    [
+     262279168,
+     1048576
+    ],
+    [
+     265916416,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l9.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     263327744,
+     262144
+    ],
+    [
+     262115328,
+     131072
+    ],
+    [
+     265752576,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l9.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     263589888,
+     65536
+    ],
+    [
+     262246400,
+     32768
+    ],
+    [
+     265883648,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l9.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     267292672,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l9.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     266964992,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l9.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     267227136,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l9.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     277647360,
+     6291456
+    ],
+    [
+     270372864,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l9.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     276664320,
+     786432
+    ],
+    [
+     269389824,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l9.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     277450752,
+     196608
+    ],
+    [
+     270176256,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l9.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     284921856,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l9.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     283938816,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l9.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     284725248,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l9.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     73728,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l9.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     77824,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l9.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     4608,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l9.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     4864,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l10.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     292753408,
+     2097152
+    ],
+    [
+     291377152,
+     1048576
+    ],
+    [
+     295014400,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l10.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     292425728,
+     262144
+    ],
+    [
+     291213312,
+     131072
+    ],
+    [
+     294850560,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l10.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     292687872,
+     65536
+    ],
+    [
+     291344384,
+     32768
+    ],
+    [
+     294981632,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l10.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     296390656,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l10.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     296062976,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l10.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     296325120,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l10.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     306745344,
+     6291456
+    ],
+    [
+     299470848,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l10.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     305762304,
+     786432
+    ],
+    [
+     298487808,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l10.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     306548736,
+     196608
+    ],
+    [
+     299274240,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l10.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     314019840,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l10.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     313036800,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l10.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     313823232,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l10.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     81920,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l10.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     86016,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l10.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     5120,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l10.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     5376,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l11.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     321851392,
+     2097152
+    ],
+    [
+     320475136,
+     1048576
+    ],
+    [
+     324112384,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l11.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     321523712,
+     262144
+    ],
+    [
+     320311296,
+     131072
+    ],
+    [
+     323948544,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l11.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     321785856,
+     65536
+    ],
+    [
+     320442368,
+     32768
+    ],
+    [
+     324079616,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l11.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     325488640,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l11.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     325160960,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l11.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     325423104,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l11.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     335843328,
+     6291456
+    ],
+    [
+     328568832,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l11.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     334860288,
+     786432
+    ],
+    [
+     327585792,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l11.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     335646720,
+     196608
+    ],
+    [
+     328372224,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l11.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     343117824,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l11.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     342134784,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l11.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     342921216,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l11.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     90112,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l11.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     94208,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l11.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     5632,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l11.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     5888,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l12.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     350949376,
+     2097152
+    ],
+    [
+     349573120,
+     1048576
+    ],
+    [
+     353210368,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l12.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     350621696,
+     262144
+    ],
+    [
+     349409280,
+     131072
+    ],
+    [
+     353046528,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l12.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     350883840,
+     65536
+    ],
+    [
+     349540352,
+     32768
+    ],
+    [
+     353177600,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l12.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     354586624,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l12.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     354258944,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l12.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     354521088,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l12.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     364941312,
+     6291456
+    ],
+    [
+     357666816,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l12.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     363958272,
+     786432
+    ],
+    [
+     356683776,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l12.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     364744704,
+     196608
+    ],
+    [
+     357470208,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l12.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     372215808,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l12.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     371232768,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l12.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     372019200,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l12.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     98304,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l12.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     102400,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l12.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     6144,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l12.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     6400,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l13.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     380047360,
+     2097152
+    ],
+    [
+     378671104,
+     1048576
+    ],
+    [
+     382308352,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l13.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     379719680,
+     262144
+    ],
+    [
+     378507264,
+     131072
+    ],
+    [
+     382144512,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l13.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     379981824,
+     65536
+    ],
+    [
+     378638336,
+     32768
+    ],
+    [
+     382275584,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l13.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     383684608,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l13.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     383356928,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l13.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     383619072,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l13.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     394039296,
+     6291456
+    ],
+    [
+     386764800,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l13.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     393056256,
+     786432
+    ],
+    [
+     385781760,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l13.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     393842688,
+     196608
+    ],
+    [
+     386568192,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l13.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     401313792,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l13.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     400330752,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l13.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     401117184,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l13.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     106496,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l13.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     110592,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l13.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     6656,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l13.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     6912,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l14.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     409145344,
+     2097152
+    ],
+    [
+     407769088,
+     1048576
+    ],
+    [
+     411406336,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l14.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     408817664,
+     262144
+    ],
+    [
+     407605248,
+     131072
+    ],
+    [
+     411242496,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l14.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     409079808,
+     65536
+    ],
+    [
+     407736320,
+     32768
+    ],
+    [
+     411373568,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l14.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     412782592,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l14.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     412454912,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l14.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     412717056,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l14.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     423137280,
+     6291456
+    ],
+    [
+     415862784,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l14.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     422154240,
+     786432
+    ],
+    [
+     414879744,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l14.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     422940672,
+     196608
+    ],
+    [
+     415666176,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l14.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     430411776,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l14.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     429428736,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l14.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     430215168,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l14.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     114688,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l14.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     118784,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l14.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     7168,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l14.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     7424,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l15.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     438243328,
+     2097152
+    ],
+    [
+     436867072,
+     1048576
+    ],
+    [
+     440504320,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l15.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     437915648,
+     262144
+    ],
+    [
+     436703232,
+     131072
+    ],
+    [
+     440340480,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l15.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     438177792,
+     65536
+    ],
+    [
+     436834304,
+     32768
+    ],
+    [
+     440471552,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l15.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     441880576,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l15.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     441552896,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l15.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     441815040,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l15.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     452235264,
+     6291456
+    ],
+    [
+     444960768,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l15.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     451252224,
+     786432
+    ],
+    [
+     443977728,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l15.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     452038656,
+     196608
+    ],
+    [
+     444764160,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l15.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     459509760,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l15.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     458526720,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l15.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     459313152,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l15.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     122880,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l15.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     126976,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l15.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     7680,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l15.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     7936,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l16.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     467341312,
+     2097152
+    ],
+    [
+     465965056,
+     1048576
+    ],
+    [
+     469602304,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l16.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     467013632,
+     262144
+    ],
+    [
+     465801216,
+     131072
+    ],
+    [
+     469438464,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l16.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     467275776,
+     65536
+    ],
+    [
+     465932288,
+     32768
+    ],
+    [
+     469569536,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l16.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     470978560,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l16.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     470650880,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l16.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     470913024,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l16.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     481333248,
+     6291456
+    ],
+    [
+     474058752,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l16.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     480350208,
+     786432
+    ],
+    [
+     473075712,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l16.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     481136640,
+     196608
+    ],
+    [
+     473862144,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l16.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     488607744,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l16.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     487624704,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l16.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     488411136,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l16.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     131072,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l16.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     135168,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l16.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     8192,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l16.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     8448,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l17.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     496439296,
+     2097152
+    ],
+    [
+     495063040,
+     1048576
+    ],
+    [
+     498700288,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l17.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     496111616,
+     262144
+    ],
+    [
+     494899200,
+     131072
+    ],
+    [
+     498536448,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l17.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     496373760,
+     65536
+    ],
+    [
+     495030272,
+     32768
+    ],
+    [
+     498667520,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l17.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     500076544,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l17.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     499748864,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l17.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     500011008,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l17.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     510431232,
+     6291456
+    ],
+    [
+     503156736,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l17.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     509448192,
+     786432
+    ],
+    [
+     502173696,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l17.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     510234624,
+     196608
+    ],
+    [
+     502960128,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l17.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     517705728,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l17.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     516722688,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l17.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     517509120,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l17.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     139264,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l17.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     143360,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l17.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     8704,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l17.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     8960,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l18.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     525537280,
+     2097152
+    ],
+    [
+     524161024,
+     1048576
+    ],
+    [
+     527798272,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l18.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     525209600,
+     262144
+    ],
+    [
+     523997184,
+     131072
+    ],
+    [
+     527634432,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l18.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     525471744,
+     65536
+    ],
+    [
+     524128256,
+     32768
+    ],
+    [
+     527765504,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l18.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     529174528,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l18.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     528846848,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l18.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     529108992,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l18.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     539529216,
+     6291456
+    ],
+    [
+     532254720,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l18.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     538546176,
+     786432
+    ],
+    [
+     531271680,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l18.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     539332608,
+     196608
+    ],
+    [
+     532058112,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l18.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     546803712,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l18.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     545820672,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l18.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     546607104,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l18.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     147456,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l18.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     151552,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l18.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     9216,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l18.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     9472,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l19.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     554635264,
+     2097152
+    ],
+    [
+     553259008,
+     1048576
+    ],
+    [
+     556896256,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l19.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     554307584,
+     262144
+    ],
+    [
+     553095168,
+     131072
+    ],
+    [
+     556732416,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l19.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     554569728,
+     65536
+    ],
+    [
+     553226240,
+     32768
+    ],
+    [
+     556863488,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l19.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     558272512,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l19.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     557944832,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l19.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     558206976,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l19.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     568627200,
+     6291456
+    ],
+    [
+     561352704,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l19.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     567644160,
+     786432
+    ],
+    [
+     560369664,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l19.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     568430592,
+     196608
+    ],
+    [
+     561156096,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l19.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     575901696,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l19.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     574918656,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l19.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     575705088,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l19.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     155648,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l19.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     159744,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l19.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     9728,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l19.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     9984,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l20.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     583733248,
+     2097152
+    ],
+    [
+     582356992,
+     1048576
+    ],
+    [
+     585994240,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l20.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     583405568,
+     262144
+    ],
+    [
+     582193152,
+     131072
+    ],
+    [
+     585830400,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l20.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     583667712,
+     65536
+    ],
+    [
+     582324224,
+     32768
+    ],
+    [
+     585961472,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l20.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     587370496,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l20.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     587042816,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l20.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     587304960,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l20.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     597725184,
+     6291456
+    ],
+    [
+     590450688,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l20.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     596742144,
+     786432
+    ],
+    [
+     589467648,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l20.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     597528576,
+     196608
+    ],
+    [
+     590254080,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l20.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     604999680,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l20.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     604016640,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l20.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     604803072,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l20.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     163840,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l20.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     167936,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l20.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     10240,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l20.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     10496,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l21.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     612831232,
+     2097152
+    ],
+    [
+     611454976,
+     1048576
+    ],
+    [
+     615092224,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l21.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     612503552,
+     262144
+    ],
+    [
+     611291136,
+     131072
+    ],
+    [
+     614928384,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l21.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     612765696,
+     65536
+    ],
+    [
+     611422208,
+     32768
+    ],
+    [
+     615059456,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l21.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     616468480,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l21.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     616140800,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l21.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     616402944,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l21.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     626823168,
+     6291456
+    ],
+    [
+     619548672,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l21.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     625840128,
+     786432
+    ],
+    [
+     618565632,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l21.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     626626560,
+     196608
+    ],
+    [
+     619352064,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l21.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     634097664,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l21.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     633114624,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l21.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     633901056,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l21.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     172032,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l21.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     176128,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l21.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     10752,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l21.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     11008,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l22.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     641929216,
+     2097152
+    ],
+    [
+     640552960,
+     1048576
+    ],
+    [
+     644190208,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l22.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     641601536,
+     262144
+    ],
+    [
+     640389120,
+     131072
+    ],
+    [
+     644026368,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l22.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     641863680,
+     65536
+    ],
+    [
+     640520192,
+     32768
+    ],
+    [
+     644157440,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l22.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     645566464,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l22.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     645238784,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l22.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     645500928,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l22.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     655921152,
+     6291456
+    ],
+    [
+     648646656,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l22.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     654938112,
+     786432
+    ],
+    [
+     647663616,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l22.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     655724544,
+     196608
+    ],
+    [
+     648450048,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l22.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     663195648,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l22.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     662212608,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l22.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     662999040,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l22.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     180224,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l22.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     184320,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l22.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     11264,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l22.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     11520,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l23.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     671027200,
+     2097152
+    ],
+    [
+     669650944,
+     1048576
+    ],
+    [
+     673288192,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l23.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     670699520,
+     262144
+    ],
+    [
+     669487104,
+     131072
+    ],
+    [
+     673124352,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l23.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     670961664,
+     65536
+    ],
+    [
+     669618176,
+     32768
+    ],
+    [
+     673255424,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l23.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     674664448,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l23.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     674336768,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l23.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     674598912,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l23.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     685019136,
+     6291456
+    ],
+    [
+     677744640,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l23.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     684036096,
+     786432
+    ],
+    [
+     676761600,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l23.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     684822528,
+     196608
+    ],
+    [
+     677548032,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l23.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     692293632,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l23.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     691310592,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l23.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     692097024,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l23.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     188416,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l23.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     192512,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l23.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     11776,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l23.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     12032,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l24.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     700125184,
+     2097152
+    ],
+    [
+     698748928,
+     1048576
+    ],
+    [
+     702386176,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l24.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     699797504,
+     262144
+    ],
+    [
+     698585088,
+     131072
+    ],
+    [
+     702222336,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l24.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     700059648,
+     65536
+    ],
+    [
+     698716160,
+     32768
+    ],
+    [
+     702353408,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l24.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     703762432,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l24.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     703434752,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l24.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     703696896,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l24.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     714117120,
+     6291456
+    ],
+    [
+     706842624,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l24.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     713134080,
+     786432
+    ],
+    [
+     705859584,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l24.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     713920512,
+     196608
+    ],
+    [
+     706646016,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l24.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     721391616,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l24.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     720408576,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l24.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     721195008,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l24.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     196608,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l24.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     200704,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l24.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     12288,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l24.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     12544,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l25.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     729223168,
+     2097152
+    ],
+    [
+     727846912,
+     1048576
+    ],
+    [
+     731484160,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l25.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     728895488,
+     262144
+    ],
+    [
+     727683072,
+     131072
+    ],
+    [
+     731320320,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l25.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     729157632,
+     65536
+    ],
+    [
+     727814144,
+     32768
+    ],
+    [
+     731451392,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l25.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     732860416,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l25.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     732532736,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l25.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     732794880,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l25.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     743215104,
+     6291456
+    ],
+    [
+     735940608,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l25.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     742232064,
+     786432
+    ],
+    [
+     734957568,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l25.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     743018496,
+     196608
+    ],
+    [
+     735744000,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l25.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     750489600,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l25.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     749506560,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l25.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     750292992,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l25.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     204800,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l25.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     208896,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l25.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     12800,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l25.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     13056,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l26.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     758321152,
+     2097152
+    ],
+    [
+     756944896,
+     1048576
+    ],
+    [
+     760582144,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l26.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     757993472,
+     262144
+    ],
+    [
+     756781056,
+     131072
+    ],
+    [
+     760418304,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l26.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     758255616,
+     65536
+    ],
+    [
+     756912128,
+     32768
+    ],
+    [
+     760549376,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l26.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     761958400,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l26.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     761630720,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l26.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     761892864,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l26.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     772313088,
+     6291456
+    ],
+    [
+     765038592,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l26.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     771330048,
+     786432
+    ],
+    [
+     764055552,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l26.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     772116480,
+     196608
+    ],
+    [
+     764841984,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l26.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     779587584,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l26.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     778604544,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l26.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     779390976,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l26.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     212992,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l26.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     217088,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l26.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     13312,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l26.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     13568,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l27.qkv.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     788631552,
+     2097152
+    ],
+    [
+     787255296,
+     1048576
+    ],
+    [
+     786042880,
+     1048576
+    ]
+   ],
+   "length": 4194304
+  },
+  "l27.qkv.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     788303872,
+     262144
+    ],
+    [
+     787091456,
+     131072
+    ],
+    [
+     785879040,
+     131072
+    ]
+   ],
+   "length": 524288
+  },
+  "l27.qkv.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     788566016,
+     65536
+    ],
+    [
+     787222528,
+     32768
+    ],
+    [
+     786010112,
+     32768
+    ]
+   ],
+   "length": 131072
+  },
+  "l27.o.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     791056384,
+     2097152
+    ]
+   ],
+   "length": 2097152
+  },
+  "l27.o.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     790728704,
+     262144
+    ]
+   ],
+   "length": 262144
+  },
+  "l27.o.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     790990848,
+     65536
+    ]
+   ],
+   "length": 65536
+  },
+  "l27.gu.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     801411072,
+     6291456
+    ],
+    [
+     794136576,
+     6291456
+    ]
+   ],
+   "length": 12582912
+  },
+  "l27.gu.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     800428032,
+     786432
+    ],
+    [
+     793153536,
+     786432
+    ]
+   ],
+   "length": 1572864
+  },
+  "l27.gu.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     801214464,
+     196608
+    ],
+    [
+     793939968,
+     196608
+    ]
+   ],
+   "length": 393216
+  },
+  "l27.down.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     808685568,
+     6291456
+    ]
+   ],
+   "length": 6291456
+  },
+  "l27.down.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     807702528,
+     786432
+    ]
+   ],
+   "length": 786432
+  },
+  "l27.down.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     808488960,
+     196608
+    ]
+   ],
+   "length": 196608
+  },
+  "l27.ln1": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     221184,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l27.ln2": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     225280,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "l27.qn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     13824,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "l27.kn": {
+   "src": "qknorm.bin",
+   "segments": [
+    [
+     14080,
+     256
+    ]
+   ],
+   "length": 256
+  },
+  "norm": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     229376,
+     4096
+    ]
+   ],
+   "length": 4096
+  },
+  "lm.q": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     839286784,
+     155582464
+    ]
+   ],
+   "length": 155582464
+  },
+  "lm.s": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     814977024,
+     19447808
+    ]
+   ],
+   "length": 19447808
+  },
+  "lm.z": {
+   "src": "decoder_weights.q4f16.data",
+   "segments": [
+    [
+     834424832,
+     4861952
+    ]
+   ],
+   "length": 4861952
+  }
+ },
+ "qknorm_bytes": 14336,
+ "config": {
+  "layers": 28,
+  "hidden": 2048,
+  "heads": 16,
+  "kv_heads": 8,
+  "head_dim": 128,
+  "intermediate": 6144,
+  "vocab": 151936,
+  "rope_theta": 1000000.0,
+  "rms_eps": 1e-06,
+  "attn_scale_f16": 0.08837890625,
+  "eos": [
+   151643,
+   151645
+  ],
+  "block": 32,
+  "source": "jiangzhuo9357/Qwen3-ASR-1.7B-ONNX@fcc238dfdc95cdcccaa9a7e2c7f5abc2f94f44a7"
+ }
+}
