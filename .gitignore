@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.bin
+*.data
+*.onnx
+*.log
+
+# engine release assets, small and needed by upload-models
+!apps/monkey-script/engine-dev/model/qknorm.bin
