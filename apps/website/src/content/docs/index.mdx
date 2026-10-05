@@ -1,0 +1,49 @@
+---
+title: chan-necessity
+description: 치지직 1080p 화질, 통나무 파워 자동 수집, 라이브 북마크와 다시보기 타임라인, 실시간 자막, 스플릿 뷰를 더하는 유저스크립트예요.
+template: splash
+hero:
+  title: 치지직을 <span class="cn-accent">조금 더 편하게</span>
+  tagline: 화질 제한 우회부터 실시간 자막, 스플릿 뷰까지. 브라우저에 유저스크립트 하나만 설치하면 돼요.
+  actions:
+    - text: 스크립트 설치
+      link: /chan-necessity/chan-necessity.user.js
+      icon: download
+      variant: primary
+    - text: 설치 안내
+      link: /chan-necessity/install/
+      icon: right-arrow
+      variant: secondary
+    - text: GitHub 저장소
+      link: https://github.com/RanolP/chan-necessity
+      icon: github
+      variant: minimal
+---
+
+import { Aside, Card, CardGrid } from "@astrojs/starlight/components";
+
+<Aside type="note" title="먼저 Violentmonkey가 필요해요">
+chan-necessity는 유저스크립트예요. 브라우저에 [Violentmonkey](https://violentmonkey.github.io/) 확장을 먼저 설치한 뒤 「스크립트 설치」를 누르면 설치 화면이 열려요. 자세한 순서는 [설치 안내](/chan-necessity/install/)에 있어요.
+</Aside>
+
+{/* TODO: screenshot — 라이브 화면에 자막과 스플릿 뷰가 함께 켜진 모습 */}
+
+## 기능
+
+<CardGrid>
+  <Card title="1080p 화질" icon="laptop">
+    치지직이 요구하는 조건 때문에 막힌 1080p 화질을 고를 수 있게 해요. [자세히](/chan-necessity/features/deny-grid/)
+  </Card>
+  <Card title="통나무 파워 자동 수집" icon="star">
+    채팅 옆에 뜨는 통나무 파워 받기 버튼을 대신 눌러 줘요. [자세히](/chan-necessity/features/auto-claim-logs/)
+  </Card>
+  <Card title="라이브 북마크와 다시보기 타임라인" icon="pencil">
+    라이브를 보다가 순간을 표시해 두고, 다시보기에서 그 지점으로 바로 이동해요. [자세히](/chan-necessity/features/bookmarks/)
+  </Card>
+  <Card title="실시간 자막" icon="comment">
+    방송 소리를 브라우저 안에서 바로 받아써서 자막으로 보여 줘요. 음성 인식 모델은 WebGPU로 내 컴퓨터에서 돌아요. [자세히](/chan-necessity/features/subtitles/)
+  </Card>
+  <Card title="스플릿 뷰" icon="desktop">
+    여러 채널을 한 화면에 나란히 띄우고, 칸마다 소리를 왼쪽·오른쪽으로 나눠 들어요. [자세히](/chan-necessity/features/split-view/)
+  </Card>
+</CardGrid>

@@ -1,0 +1,17 @@
+/* Chzzk-like green accent; Starlight derives its light and dark palettes from these. */
+:root {
+    --sl-color-accent-low: #00331f;
+    --sl-color-accent: #00a86b;
+    --sl-color-accent-high: #a8f0cf;
+}
+:root[data-theme="light"] {
+    --sl-color-accent-low: #c9f5e0;
+    --sl-color-accent: #007a4d;
+    --sl-color-accent-high: #00331f;
+}
+.cn-accent {
+    color: var(--sl-color-accent-high);
+}
+:root[data-theme="light"] .cn-accent {
+    color: var(--sl-color-accent);
+}
