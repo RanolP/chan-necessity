@@ -20,9 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: mise.toml
+      # setup-node cannot parse mise.toml's [tools] table; mise-action reads it natively.
+      - uses: jdx/mise-action@v5
       # Yarn 1 comes from the packageManager field through corepack.
       - run: corepack enable
       - run: yarn install --frozen-lockfile
