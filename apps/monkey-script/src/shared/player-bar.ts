@@ -31,11 +31,14 @@ export interface PlayerButton {
 const BAR = ".pzp-pc__bottom-buttons-right";
 const MARK = "cb-bar-button";
 // The player sizes each native button by its own class to a 36px box, and
-// hides them with the controls overlay: .pzp-pc loses .pzp-pc--controls
-// when the mouse leaves. Ours take the same box and follow the same class.
+// fades them with the controls overlay: .pzp-pc loses .pzp-pc--controls
+// when the mouse leaves, and each button animates opacity alone, staying
+// visible and clickable. Ours take the same box and toggle only opacity, so
+// the player's own `.pzp-pc__bottom-buttons .pzp-pc-ui-button` transition
+// fades them in step; a visibility toggle would snap them away mid-fade.
 const STYLE = `
-    .${MARK} { width: 36px; height: 36px; transition: opacity .2s ease-in, visibility .2s ease-in; }
-    .pzp-pc:not(.pzp-pc--controls) .${MARK} { opacity: 0; visibility: hidden; pointer-events: none; }
+    .${MARK} { width: 36px; height: 36px; }
+    .pzp-pc:not(.pzp-pc--controls) .${MARK} { opacity: 0; }
     .${MARK}[aria-pressed="true"] .pzp-ui-icon { color: #00ffa3; }
 `;
 
