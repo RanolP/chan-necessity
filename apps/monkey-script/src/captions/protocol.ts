@@ -20,6 +20,8 @@ export interface LoadMessage {
     rev: string;
     cacheName: string;
     engineAssets: EngineAssets | null;
+    // Why engineAssets is null: the files and the fetch error, for the load error.
+    engineAssetsError?: string;
     logLevel?: LogLevel;
     id?: undefined;
     col?: string | null;

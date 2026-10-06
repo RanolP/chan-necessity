@@ -221,12 +221,12 @@ async function fetchCached(cache: Cache, url: string, onBytes: OnBytes, expect =
     return readCached(cache, url, onBytes, expect);
 }
 
-async function load({ repo, rev, cacheName, engineAssets }: LoadMessage) {
+async function load({ repo, rev, cacheName, engineAssets, engineAssetsError }: LoadMessage) {
     const t0 = performance.now();
     post({ type: "caps", workerRaf });
-    // The decoder engine is built for one export, named by its manifest;
-    // without matching assets there is nothing to decode with.
-    if (!engineAssets) throw new Error(`${repo}: 디코더 엔진 자산 없음 (지원 모델은 1.7B뿐)`);
+    // Each export has its own engine assets, whose manifest names the
+    // export; without matching assets there is nothing to decode with.
+    if (!engineAssets) throw new Error(`${repo}: 디코더 엔진 자산 없음 (${engineAssetsError ?? "load message carried no engine assets"})`);
     const source = `${repo}@${rev}`;
     const man: { config?: { source?: string } } = JSON.parse(new TextDecoder().decode(engineAssets.manifest));
     if (man.config?.source !== source) throw new Error(`engine manifest is for ${man.config?.source}, model is ${source}`);

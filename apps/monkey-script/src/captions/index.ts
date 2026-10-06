@@ -162,8 +162,9 @@ type PlayerHost = HTMLElement & { cbSubWatched?: boolean };
     // Fetches the engine's files first; the worker queues nothing until
     // its load message, and the page sends audio only after "ready".
     const postLoad = async (worker: SttPort, name: ModelName) => {
-        const engineAssets = name === "1.7B" ? await loadEngineAssets(CACHE_NAME, getSetting) : null;
-        worker.postMessage({ type: "load", ...MODELS[name], cacheName: CACHE_NAME, engineAssets, logLevel: toLogLevel(GM_getValue(KEY_LOG_LEVEL)) }, engineAssets ? [engineAssets.manifest, engineAssets.qknorm] : []);
+        const got = await loadEngineAssets(CACHE_NAME, getSetting, name);
+        const engineAssets = "error" in got ? null : got;
+        worker.postMessage({ type: "load", ...MODELS[name], cacheName: CACHE_NAME, engineAssets, engineAssetsError: "error" in got ? got.error : undefined, logLevel: toLogLevel(GM_getValue(KEY_LOG_LEVEL)) }, engineAssets ? [engineAssets.manifest, engineAssets.qknorm] : []);
     };
 
     function makeWorker(name: string) {
