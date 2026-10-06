@@ -56,6 +56,9 @@ export interface PrefillOptions {
   audioPadId?: number;
   /** Layers whose op boundaries are copied out into PrefillResult.debug (parity only; splits the pass). */
   debug?: readonly number[];
+  /** Ends a command buffer after each layer and awaits this before the next, so a caller sharing the GPU with
+   *  video can yield frames instead of holding the queue for the whole prefill. Same dispatches, same results. */
+  betweenLayers?: () => Promise<void>;
 }
 export interface PrefillResult {
   /** Greedy first token, reduced on the GPU from the final prefill logits. */
@@ -251,7 +254,7 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
       device.queue.writeBuffer(vc, dst, pv.buffer, pv.byteOffset + src, row);
     }
   }
-  async function prefill(ids: Int32Array | readonly number[], audioFeatures: GPUBuffer | Float32Array, { audioStart, audioTokens, audioPadId, debug }: PrefillOptions): Promise<PrefillResult> {
+  async function prefill(ids: Int32Array | readonly number[], audioFeatures: GPUBuffer | Float32Array, { audioStart, audioTokens, audioPadId, debug, betweenLayers }: PrefillOptions): Promise<PrefillResult> {
     const Sx = ids.length;
     if (!Number.isInteger(Sx) || Sx <= 0 || Sx > LMAX) throw new RangeError(`prefill: ids length ${Sx} is outside 1..${LMAX}`);
     if (!Number.isInteger(audioStart) || audioStart < 0) throw new RangeError(`prefill: invalid audioStart ${audioStart}`);
@@ -276,7 +279,7 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     const state = new Uint32Array(16); state[2] = 0; state[3] = 0;
     device.queue.writeBuffer(st, 0, state);
 
-    const enc = device.createCommandEncoder();
+    let enc = device.createCommandEncoder();
     let pass = enc.beginComputePass();
     // Debug taps end the pass, copy one buffer region out and reopen the pass.
     const taps: { name: string; m: GPUBuffer; kv: boolean }[] = [];
@@ -316,6 +319,13 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
       t("act", prefillAct, I);
       go(pass, P.prefillDown, l.prefillDown, H / 8, Sx);
       t("resid2", prefillH, H);
+      if (betweenLayers && L < NL - 1) {
+        pass.end();
+        device.queue.submit([enc.finish()]);
+        await betweenLayers();
+        enc = device.createCommandEncoder();
+        pass = enc.beginComputePass();
+      }
     }
     pass.end();
     enc.copyBufferToBuffer(prefillH, (Sx - 1) * H * 4, h, 0, H * 4);

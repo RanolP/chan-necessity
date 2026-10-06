@@ -910,7 +910,13 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             if (frames >= 20) {
                 const rate = (q.droppedVideoFrames - a.dropped) / frames;
                 if (!gov.quality.some((s) => s.inFlight)) gov.baseDrop += (rate - gov.baseDrop) * 0.2;
-                if (rate > gov.baseDrop + 0.05) return "drops";
+                if (rate > gov.baseDrop + 0.05) {
+                    // Count a burst once: left in the window, every 500 ms
+                    // tick would double the factor again for the same
+                    // frames, and one hop would reach the 10 s pause.
+                    gov.quality.splice(0, gov.quality.length - 1);
+                    return "drops";
+                }
             }
         }
         if (gov.frames.length >= 30 && quantile(gov.frames, 0.95) > 50) return "jank";

@@ -343,19 +343,29 @@ async function load({ repo, rev, cacheName, engineAssets }: LoadMessage) {
 // audio.frames) is filled from the encoder's GPU buffer. Returns the
 // generated ids, eos excluded. The engine decodes a whole run in one
 // go, so its output is cut where `stop` first holds.
-async function decodeGreedy(ids: number[], audio: GPUBuffer, audioStart: number, audioTokens: number, maxTokens: number, stop: (gen: readonly number[]) => boolean) {
+async function decodeGreedy(ids: number[], audio: GPUBuffer, audioStart: number, audioTokens: number, maxTokens: number, stop: (gen: readonly number[]) => boolean, pace = false) {
     const eng = engine!;
     const P = model!.cfg.prompt;
     if (ids.length > eng.LMAX) throw new Error(`prompt of ${ids.length} tokens exceeds the engine's ${eng.LMAX}-token cache`);
     const t0 = performance.now();
     stage = "prefill";
-    const pre = await eng.prefill(ids, audio, { audioStart, audioTokens, audioPadId: P.audio_pad_id });
+    // A whole prefill is ~600 ms of GPU work: as one submit it drops video
+    // frames, and the governor answers dropped frames with a 10 s pause.
+    // Paced, it runs layer by layer and the compositor gets the gaps.
+    const betweenLayers = pace
+        ? async () => {
+              await device!.queue.onSubmittedWorkDone();
+              await paced(true);
+          }
+        : undefined;
+    const pre = await eng.prefill(ids, audio, { audioStart, audioTokens, audioPadId: P.audio_pad_id, betweenLayers });
     const tPre = performance.now();
     const out = [pre.token];
     const cap = Math.min(maxTokens - 1, eng.LMAX - ids.length);
     if (!pre.done && cap > 0) {
         stage = "decode";
-        out.push(...(await eng.decode(pre.token, pre.position, { cap, owd: true })).tokens);
+        await paced(pace, true);
+        out.push(...(await eng.decode(pre.token, pre.position, { cap, owd: true, perSubmit: pace ? 4 : 16 })).tokens);
     }
     const gen: number[] = [];
     for (const t of out) {
@@ -387,7 +397,7 @@ async function transcribe(pcm: Float32Array, lang: string, maxTokens: number, pa
     await paced(pace, true);
     let r;
     try {
-        r = await decodeGreedy(ids, enc.buffer, P.prefix_ids.length, enc.frames, maxTokens, stopWindow);
+        r = await decodeGreedy(ids, enc.buffer, P.prefix_ids.length, enc.frames, maxTokens, stopWindow, pace);
     } finally {
         enc.buffer.destroy();
     }
@@ -568,7 +578,7 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
     const audio = parts.length ? concatFeatures(parts) : null;
     let r;
     try {
-        r = await decodeGreedy(ids, audio?.buffer ?? noAudio(), audioAt, A, m.maxTokens, stopStream);
+        r = await decodeGreedy(ids, audio?.buffer ?? noAudio(), audioAt, A, m.maxTokens, stopStream, m.pace);
     } finally {
         if (audio?.owned) audio.buffer.destroy();
         open?.buffer.destroy();
