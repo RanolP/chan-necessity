@@ -1,4 +1,6 @@
 import { getLogger } from "../shared/logtape.ts";
+import { registerPlayerButton } from "../shared/player-bar.ts";
+import { API, fetchLive, forgetPlayerRef, getJson, kstToMs, watchedWallTime, type LiveInfo } from "../shared/broadcast-time.ts";
 
 const logger = getLogger(["bookmarks"]);
 
@@ -18,23 +20,6 @@ interface Bookmark {
     memo: string;
     liveTitle: string;
     createdAt: number;
-}
-
-interface LiveInfo {
-    channelId: string;
-    liveId: number;
-    openDate: string;
-    liveTitle: string;
-    status: string;
-    videoId: string | null;
-}
-
-interface LiveDetailResponse {
-    liveId: number;
-    openDate: string;
-    liveTitle: string;
-    status: string;
-    livePlaybackJson: string;
 }
 
 interface VideoResponse {
@@ -60,23 +45,7 @@ interface VideoListResponse {
     data?: { videoNo: number; videoType: string; publishDate: string }[];
 }
 
-interface PlayerRef {
-    getProgramDateTime(): number;
-}
-
-interface FiberHook {
-    memoizedState: unknown;
-    next: FiberHook | null;
-}
-
-interface Fiber {
-    memoizedState: FiberHook | null;
-    sibling: Fiber | null;
-    child: Fiber | null;
-}
-
 type Route = { kind: "none" | "live" | "video"; key: string };
-type TimeSource = "player" | "openDate+currentTime" | "now";
 interface Entry {
     bookmark: Bookmark;
     offset: number;
@@ -84,7 +53,6 @@ interface Entry {
 
 (() => {
     const STORAGE_KEY = "bookmarks";
-    const API = "https://api.chzzk.naver.com/service";
     const LIVE_RE = /^\/live\/([0-9a-f]{32})/i;
     const VIDEO_RE = /^\/video\/(\d+)/;
     // Split parts each cover at most ~17h, so a gap this large between
@@ -92,9 +60,6 @@ interface Entry {
     const EARLIER_PART_SLACK_SEC = 3600;
     const ICON =
         '<svg width="36" height="36" viewBox="0 0 36 36" fill="none" aria-hidden="true" class="pzp-ui-icon__svg"><path d="M13 10.5C13 9.67 13.67 9 14.5 9h7c.83 0 1.5.67 1.5 1.5V26l-5-3.4-5 3.4V10.5Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
-
-    const pageWindow =
-        typeof unsafeWindow === "undefined" ? window : unsafeWindow;
 
     const load = (): Bookmark[] => {
         try {
@@ -107,121 +72,12 @@ interface Entry {
     };
     const store = (list: Bookmark[]) => GM_setValue(STORAGE_KEY, list);
 
-    const kstToMs = (text: string | null | undefined) =>
-        text ? Date.parse(text.replace(" ", "T") + "+09:00") : NaN;
-
     function formatClock(sec: number) {
         sec = Math.max(0, Math.floor(sec));
         const h = Math.floor(sec / 3600);
         const m = String(Math.floor(sec / 60) % 60).padStart(2, "0");
         const s = String(sec % 60).padStart(2, "0");
         return `${h}:${m}:${s}`;
-    }
-
-    async function getJson<T>(url: string): Promise<T> {
-        const response = await pageWindow.fetch(url, {
-            credentials: "include",
-        });
-        const body = await response.text();
-        if (!response.ok) {
-            throw new Error(
-                `[ChzzkBest] ${url} → ${response.status}: ${body.slice(0, 200)}`
-            );
-        }
-        try {
-            return JSON.parse(body).content as T;
-        } catch {
-            throw new Error(
-                `[ChzzkBest] ${url} → bad JSON: ${body.slice(0, 200)}`
-            );
-        }
-    }
-
-    async function fetchLive(channelId: string): Promise<LiveInfo> {
-        const c = await getJson<LiveDetailResponse>(
-            `${API}/v3/channels/${channelId}/live-detail`
-        );
-        let videoId: string | null = null;
-        try {
-            videoId = JSON.parse(c.livePlaybackJson).meta.videoId ?? null;
-        } catch (error) {
-            logger.warn("livePlaybackJson unreadable {error}", { error });
-        }
-        return {
-            channelId,
-            liveId: c.liveId,
-            openDate: c.openDate,
-            liveTitle: c.liveTitle,
-            status: c.status,
-            videoId,
-        };
-    }
-
-    // Chzzk's player component exposes getProgramDateTime() through a React
-    // imperative ref; it is startDate + currentTime of the core player, so
-    // it already accounts for latency and 타임머신 rewind.
-    function findPlayerRef(): PlayerRef | null {
-        const host = document.querySelector("#root") as (Element & Record<string, unknown>) | null;
-        const key = host && Object.keys(host).find((k) =>
-            k.startsWith("__reactContainer$")
-        );
-        if (!key) return null;
-        const stack = [host[key] as Fiber];
-        for (let visited = 0; stack.length && visited < 50_000; visited++) {
-            const fiber = stack.pop();
-            if (!fiber) continue;
-            let hook = fiber.memoizedState;
-            for (
-                let i = 0;
-                hook && typeof hook === "object" && "next" in hook && i < 80;
-                i++, hook = hook.next
-            ) {
-                const ref = hook.memoizedState;
-                const current: PlayerRef | null =
-                    ref && typeof ref === "object" && "current" in ref
-                        ? (ref.current as PlayerRef | null)
-                        : null;
-                if (typeof current?.getProgramDateTime === "function") {
-                    return current;
-                }
-            }
-            if (fiber.sibling) stack.push(fiber.sibling);
-            if (fiber.child) stack.push(fiber.child);
-        }
-        return null;
-    }
-
-    // The fiber walk is too costly for the timeline's periodic refresh, so
-    // the ref is cached until the player element is replaced.
-    let cachedRef: PlayerRef | null = null;
-    let cachedFor: Element | null = null;
-    function playerRef() {
-        const player = document.querySelector(".pzp-pc");
-        if (!cachedRef || cachedFor !== player) {
-            cachedRef = findPlayerRef();
-            cachedFor = cachedRef ? player : null;
-        }
-        return cachedRef;
-    }
-
-    function watchedWallTime(live: { openDate: string | null }): { wallTime: number; timeSource: TimeSource } {
-        const now = Date.now();
-        const openMs = kstToMs(live.openDate);
-        const plausible = (t: number | undefined): t is number =>
-            t !== undefined && Number.isFinite(t) && t <= now + 5_000 && !(t < openMs - 60_000);
-        try {
-            const t = playerRef()?.getProgramDateTime();
-            if (plausible(t)) return { wallTime: t, timeSource: "player" };
-        } catch (error) {
-            logger.warn("getProgramDateTime failed {error}", { error });
-        }
-        cachedRef = null;
-        const video = document.querySelector("video");
-        const t = openMs + 1000 * (video?.currentTime ?? NaN);
-        if (plausible(t)) {
-            return { wallTime: Math.floor(t), timeSource: "openDate+currentTime" };
-        }
-        return { wallTime: now, timeSource: "now" };
     }
 
     // ---- UI ----------------------------------------------------------------
@@ -254,11 +110,10 @@ interface Entry {
             background: linear-gradient(rgba(0,0,0,.55), rgba(0,0,0,0));
             font: 11px/1 sans-serif; color: #fff;
             font-variant-numeric: tabular-nums; text-shadow: 0 0 2px #000, 0 0 2px #000; }
-        .cb-bm-panel, .cb-bm-tl, .cb-bm-button {
+        .cb-bm-panel, .cb-bm-tl {
             transition: opacity .2s ease-in, visibility .2s ease-in; }
         .pzp-pc:not(.pzp-pc--controls) .cb-bm-panel,
-        .pzp-pc:not(.pzp-pc--controls) .cb-bm-tl,
-        .pzp-pc:not(.pzp-pc--controls) .cb-bm-button {
+        .pzp-pc:not(.pzp-pc--controls) .cb-bm-tl {
             opacity: 0; visibility: hidden; pointer-events: none; }
         .cb-bm-tl-track { position: relative; flex: 1; height: 4px; border-radius: 2px;
             background: rgba(255,255,255,.3); box-shadow: 0 0 0 1px rgba(0,0,0,.45); }
@@ -297,7 +152,7 @@ interface Entry {
         if (route.kind !== "live") return;
         const channelId = route.key;
         try {
-            const watched = watchedWallTime(live ?? { openDate: null });
+            const watched = watchedWallTime(kstToMs(live?.openDate));
             const detail = await fetchLive(channelId);
             if (detail.status !== "OPEN") {
                 toast("방송 중이 아니에요");
@@ -305,7 +160,7 @@ interface Entry {
             }
             live = detail;
             if (watched.timeSource === "openDate+currentTime") {
-                Object.assign(watched, watchedWallTime(detail));
+                Object.assign(watched, watchedWallTime(kstToMs(detail.openDate)));
             }
             const memo = prompt("북마크 메모 (비워도 돼요)", "");
             if (memo === null) return;
@@ -332,22 +187,14 @@ interface Entry {
         }
     }
 
-    function ensureButton() {
-        const bar = document.querySelector(".pzp-pc__bottom-buttons-right");
-        if (!bar || bar.querySelector(".cb-bm-button")) return;
-        const button = document.createElement("button");
-        button.className = "cb-bm-button pzp-button pzp-pc-ui-button";
-        button.setAttribute("aria-label", "북마크 (Alt+B)");
-        button.innerHTML =
-            '<span class="pzp-button__tooltip pzp-button__tooltip--top">북마크 (Alt+B)</span><span class="pzp-ui-icon">' +
-            ICON +
-            "</span>";
-        button.addEventListener("click", (event) => {
-            event.stopPropagation();
-            addBookmark();
-        });
-        bar.prepend(button);
-    }
+    registerPlayerButton({
+        className: "cb-bm-button",
+        label: "북마크 (Alt+B)",
+        icon: ICON,
+        order: 30,
+        when: () => LIVE_RE.test(location.pathname),
+        onClick: () => addBookmark(),
+    });
 
     // Each entry: { bookmark, offset (sec, replay offset or stream elapsed) }.
     function visibleEntries(): Entry[] {
@@ -402,7 +249,7 @@ interface Entry {
         const openMs = kstToMs(live.openDate);
         const span = Math.max(1, Date.now() - openMs);
         const pct = (ms: number) => Math.min(100, Math.max(0, (100 * (ms - openMs)) / span));
-        const watched = watchedWallTime(live);
+        const watched = watchedWallTime(openMs);
         bar.querySelector(".cb-bm-tl-end")!.textContent = formatClock(span / 1000);
         bar.querySelector<HTMLElement>(".cb-bm-tl-fill")!.style.width = `${pct(watched.wallTime)}%`;
         const head = bar.querySelector<HTMLElement>(".cb-bm-tl-head")!;
@@ -595,7 +442,7 @@ interface Entry {
         live = null;
         vod = null;
         renderedSignature = "";
-        cachedRef = null;
+        forgetPlayerRef();
         const current = next;
         const loader =
             next.kind === "live"
@@ -615,7 +462,6 @@ interface Entry {
     function tick() {
         try {
             onRoute();
-            if (route.kind === "live") ensureButton();
             render();
             renderTimeline();
         } catch (error) {
