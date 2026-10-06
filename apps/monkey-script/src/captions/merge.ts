@@ -46,8 +46,8 @@ export function mergeTranscript(prev: string, next: string, tailChars = 60, head
     if (best === b.chars.length) return prev;
     return (prev.slice(0, a.map[bestA]) + next.slice(b.map[bestB])).trim();
 }
-// Streaming context bookkeeping. The encoder attends within 8 s blocks
-// anchored at the start of its input, so a closed block's features never
+// Streaming context bookkeeping. Each block is encoded on its own, so
+// its attention starts at the block's first frame, a closed block's features never
 // change and the oldest block can be cut off without touching the rest.
 // `st` = { open: Float32Array, closed: [{ pcm, af, mark }], tokens, histIds }.
 // A block that closes records how many tokens the text had then (minus

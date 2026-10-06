@@ -451,13 +451,17 @@ async function vadSpeech(pcm: Float32Array) {
 }
 
 // ---- streaming decode (QwenLM streaming_transcribe scheme) --------
-// Each hop re-encodes only the open 8 s block, reuses the closed
-// block's features (kept on the GPU), forces the previous text minus
-// its last ROLLBACK tokens as the start of the answer and decodes only
-// the continuation. Older blocks slide out with their text
-// (closeBlocks), so compute and memory stay flat on an endless stream.
+// Each hop re-encodes only the open block, reuses the closed block's
+// features (kept on the GPU), forces the previous text minus its last
+// ROLLBACK tokens as the start of the answer and decodes only the
+// continuation. Older blocks slide out with their text (closeBlocks),
+// so compute and memory stay flat on an endless stream.
 // A pause (no speech for QUIET_RESET_SEC) ends the utterance.
-const BLOCK = 8 * 16000;
+// 3 s, not the model's 8 s attention window: the prompt (two blocks of
+// audio) and with it the prefill stay short, so hops keep a ~1-2 s
+// cadence. 3 s is 300 mel frames, three whole 100-frame conv chunks, so
+// no block is zero-padded mid-chunk.
+const BLOCK = 3 * 16000;
 const ROLLBACK = 5;
 const newStream = (): StreamState => ({ open: new Float32Array(0), closed: [], tokens: [], histIds: [], quietSec: 0 });
 const cols = new Map<string | null, { st: StreamState; vs: VadState | null }>(); // column id -> { st, vs }
