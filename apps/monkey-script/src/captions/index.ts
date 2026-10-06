@@ -730,9 +730,11 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         const now = performance.now();
         const fresh = state.textAt && now - state.textAt < CLEAR_AFTER_MS;
         if (!fresh) state.textEpoch++;
-        state.text = mergeTranscript(fresh ? state.text : "", job.text).slice(-300);
+        const text = mergeTranscript(fresh ? state.text : "", job.text).slice(-300);
+        // A window that repeats what is shown is no new speech.
+        if (!fresh || text !== state.text) state.textAt = now;
+        state.text = text;
         state.tent = "";
-        state.textAt = now;
         state.delayS = procS(job);
         state.delayId = job.id;
         for (let i = 1; i <= 9; i++) stats.e2eS.push(e2eAt(i / 10));
@@ -763,6 +765,9 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             const heardAt = now - (lagS + res.newSec / 2) * 1000; // mid-hop
             const ids = res.ids!;
             if (res.slidN) tokenBirth = tokenBirth.slice(res.slidN);
+            // Only new or revised tokens count as speech for CLEAR_AFTER_MS,
+            // not a hop that returned the same text.
+            if (ids.length !== tokenBirth.length || ids.some((id, i) => tokenBirth[i].id !== id)) state.textAt = now;
             const birth: { id: number; at: number; confirmed: boolean }[] = [];
             for (let i = 0; i < ids.length; i++) {
                 const old = tokenBirth[i];
@@ -786,7 +791,6 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             state.tent = "";
         }
         if (res.decoded || res.final) {
-            state.textAt = now;
             state.delayS = procS(res);
             state.delayId = res.id;
         }
@@ -938,6 +942,14 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             }
             if (seekReset) reset = true;
             seekReset = false;
+            // No new caption text for CLEAR_AFTER_MS: the next words start
+            // a new caption, so the worker drops its old context (as after a
+            // seek) instead of re-sending it. A result still waiting for the
+            // playhead may be that new text, so the check waits for it.
+            if (state.textAt && performance.now() - state.textAt >= CLEAR_AFTER_MS && !state.due.length) {
+                state.textAt = 0;
+                reset = true;
+            }
         } else if (video && mediaActive()) {
             const ct = video.currentTime;
             const end = Math.min(coveredEnd(ct), ct + MAX_AHEAD_SEC);
