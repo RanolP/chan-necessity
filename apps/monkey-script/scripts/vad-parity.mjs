@@ -1,20 +1,21 @@
+// Silero VAD parity: our createVad against the probabilities ORT produced for
+// the same model on the same seeded frames (fixtures/vad-reference.json).
+//
+//   node scripts/vad-parity.mjs [silero_vad_v5.onnx path or URL]
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 
-const require = createRequire(import.meta.url);
-const MODEL_URL = "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.24/dist/silero_vad_v5.onnx";
-const modelSource = process.argv[2] ?? MODEL_URL;
-const ort = require("onnxruntime-node");
+const reference = JSON.parse(await readFile(new URL("fixtures/vad-reference.json", import.meta.url), "utf8"));
+const modelSource = process.argv[2] ?? reference.model;
 const { createVad, parseSileroVadWeights } = await import("../src/captions/vad.ts");
 
 const model = modelSource.startsWith("http")
     ? new Uint8Array(await (await fetch(modelSource)).arrayBuffer())
     : new Uint8Array(await readFile(modelSource));
-const weights = parseSileroVadWeights(model);
-const vad = createVad(weights);
-const session = await ort.InferenceSession.create(model);
+const sha = createHash("sha256").update(model).digest("hex");
+if (sha !== reference.modelSha256) throw new Error(`${modelSource}: sha256 ${sha}, the reference was frozen from ${reference.modelSha256}`);
+const vad = createVad(parseSileroVadWeights(model));
 const frame = new Float32Array(576);
-const referenceState = new Float32Array(2 * 128);
 const random = mulberry32(0x511e_70);
 let maxAbsDiff = 0;
 let frames = 0;
@@ -29,7 +30,7 @@ function mulberry32(seed) {
     };
 }
 
-for (let i = 0; i < 188; i++) {
+for (let i = 0; i < reference.frames; i++) {
     for (let j = 0; j < frame.length; j++) {
         const time = (i * 512 + j) / 16000;
         const speech = i >= 32 && i < 128;
@@ -37,17 +38,7 @@ for (let i = 0; i < 188; i++) {
             ? 0.08 * Math.sin(2 * Math.PI * 180 * time) + 0.025 * Math.sin(2 * Math.PI * 620 * time)
             : (random() * 2 - 1) * 0.004;
     }
-    const actual = vad.prob(frame);
-    const input = frame.slice();
-    const result = await session.run({
-        input: new ort.Tensor("float32", input, [1, 576]),
-        state: new ort.Tensor("float32", referenceState, [2, 1, 128]),
-        sr: new ort.Tensor("int64", BigInt64Array.from([16000n]), []),
-    });
-    const expected = result.output.data[0];
-    const nextState = result.stateN.data;
-    referenceState.set(nextState);
-    const diff = Math.abs(actual - expected);
+    const diff = Math.abs(vad.prob(frame) - reference.probs[i]);
     if (diff > maxAbsDiff) maxAbsDiff = diff;
     frames++;
 }
