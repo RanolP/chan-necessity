@@ -118,7 +118,14 @@ const logger = getLogger(["split-view"]);
     function addStyle(css: string) {
         const style = document.createElement("style");
         style.textContent = css;
-        (document.head ?? document.documentElement).append(style);
+        const parent = document.head ?? document.documentElement;
+        if (parent) return parent.append(style);
+        // At document-start the script can run before <html> exists.
+        new MutationObserver((_, observer) => {
+            if (!document.documentElement) return;
+            observer.disconnect();
+            (document.head ?? document.documentElement).append(style);
+        }).observe(document, { childList: true });
     }
 
     // ---- inside a column frame -----------------------------------------

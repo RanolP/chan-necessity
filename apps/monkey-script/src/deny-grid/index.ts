@@ -11,6 +11,38 @@ const logger = getLogger(["deny-grid"]);
 // Like the extension, the bypass is active only on Windows.
 
 (() => {
+    // Chzzk withholds the player behind an "install the extension" layer
+    // until one of its buttons is picked; no <video> exists until then, so
+    // hiding the layer would leave nothing to watch. It is dismissed on
+    // every platform and page: the prompt is noise even where the bypass
+    // is off. Class hashes change between builds, so the button is found
+    // by its label.
+    const SKIP_EXTENSION_LABEL = "설치없이 일반 화질 시청";
+    const dismissedButtons = new WeakSet<HTMLButtonElement>();
+    function dismissExtensionPrompt() {
+        for (const button of document.querySelectorAll<HTMLButtonElement>("button")) {
+            if (dismissedButtons.has(button)) continue;
+            if (button.textContent?.trim() !== SKIP_EXTENSION_LABEL) continue;
+            dismissedButtons.add(button);
+            logger.info("dismissing extension install prompt");
+            button.click();
+        }
+    }
+    function startPromptObserver() {
+        new MutationObserver(dismissExtensionPrompt).observe(document.body, {
+            childList: true,
+            subtree: true,
+        });
+        dismissExtensionPrompt();
+    }
+    if (document.body) {
+        startPromptObserver();
+    } else {
+        document.addEventListener("DOMContentLoaded", startPromptObserver, {
+            once: true,
+        });
+    }
+
     const IS_WINDOWS = /Windows/i.test(
         (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.userAgent
     );
