@@ -22,7 +22,7 @@ Node and pnpm come from `mise.toml`; the `packageManager` field pins the same pn
 
 ## Subtitle model assets
 
-The subtitles run Qwen3-ASR (`jiangzhuo9357/Qwen3-ASR-1.7B-ONNX` or the 0.6B export) with onnxruntime-web on WebGPU. With the 1.7B model on a device with `shader-f16`, token decoding runs in a dedicated WebGPU engine (`src/captions/engine/`) instead of the ORT decode loop. The engine reads the decoder weights and embeddings from the same Hugging Face files the ORT path caches, and needs only two extra files, `manifest.json` and `qknorm.bin`, which are published to the `models-v1` GitHub release by `pnpm upload-models`. If they cannot be fetched, the subtitles keep working on the ORT path.
+The subtitles run Qwen3-ASR (`jiangzhuo9357/Qwen3-ASR-1.7B-ONNX`) entirely on an in-house WebGPU engine (`src/captions/engine/`): the encoder, the prefill and decoder, and the Silero VAD (`src/captions/vad.ts`). There is no onnxruntime at runtime, and the `.onnx` files are downloaded only as weight containers that `engine/encoder-onnx.ts` parses itself. The engine reads the decoder weights and embeddings from the Hugging Face files and needs two extra files, `manifest.json` and `qknorm.bin`, which are published to the `models-v1` GitHub release by `pnpm upload-models`. Without them the worker fails to load, and there is no fallback path. The engine is built for the 1.7B export only, so the 0.6B option in the settings menu fails to load. The kernels read f16 weights as packed `u32`, so the GPU does not need `shader-f16`.
 
 `apps/monkey-script/engine-dev/` holds the engine's conversion tools and its standalone test page.
 
