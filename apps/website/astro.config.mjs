@@ -28,7 +28,13 @@ export default defineConfig({
                         { label: "스플릿 뷰", slug: "features/split-view" },
                     ],
                 },
-                { label: "도움말", items: [{ label: "자주 묻는 질문", slug: "faq" }] },
+                {
+                    label: "도움말",
+                    items: [
+                        { label: "자주 묻는 질문", slug: "faq" },
+                        { label: "변경 이력", slug: "changelog" },
+                    ],
+                },
             ],
         }),
     ],
