@@ -3,7 +3,10 @@ import { cbAudio } from "../shared/audio.ts";
 import { normalizeWithMap, mergeTranscript, STRIP_RE } from "./merge.ts";
 import WORKER_SOURCE from "virtual:captions-worker";
 import { loadEngineAssets } from "./assets.ts";
+import { createCaptionHistory } from "./history.ts";
 import { getLogger, KEY_LOG_LEVEL, toLogLevel } from "../shared/logtape.ts";
+import { registerPlayerButton } from "../shared/player-bar.ts";
+import { kstToMs, liveOpenDate, watchedWallTime } from "../shared/broadcast-time.ts";
 import type { CapsMessage, ErrorMessage, PageMessage, PaceStats, ReadyMessage, ResultMessage, WorkerMessage } from "./protocol.ts";
 
 const logger = getLogger(["captions"]);
@@ -22,9 +25,7 @@ interface SttPort {
 }
 type ErrorLike = { name?: string; message?: string; stack?: string } | null | undefined;
 type SttVideo = HTMLVideoElement & {
-    __cbSttStream?: MediaStream;
     __cbSttSeekHook?: boolean;
-    captureStream?: () => MediaStream;
 };
 interface Mp4Box {
     type: string;
@@ -70,19 +71,41 @@ type PlayerHost = HTMLElement & { cbSubWatched?: boolean };
 
 // ---- 실시간 자막 (speech-to-text) ---------------------------------------
 // Transcribes the player's own audio with Qwen3-ASR in the browser:
-// onnxruntime-web on WebGPU inside a Web Worker, weights from the
+// hand-written WebGPU kernels inside a Web Worker, weights read out of the
 // jiangzhuo9357 layout-v2 ONNX exports, cached in Cache Storage so only the
 // first enable downloads them. Off by default; the download starts only
 // when the viewer turns the subtitle button on. Right-click the button for
-// the model choice and cache controls.
+// the model choice, cache controls and the caption history popup.
 //
-// Audio path: the video's audio (see retap) → AudioWorklet that downmixes
+// Audio path: cbAudio's capture bus (see shared/audio.ts) → AudioWorklet that downmixes
 // and decimates to 16 kHz mono, on the shared cbAudio context. That context
 // runs at the device rate; a 16 kHz context would resample what the viewer
 // hears.
 (() => {
-    const LIVE_RE = /^\/live\/[0-9a-f]{32}/i;
+    const LIVE_RE = /^\/live\/([0-9a-f]{32})/i;
     const VIDEO_RE = /^\/video\/\d+/;
+    const captionLog = createCaptionHistory({
+        cap: 2000,
+        live: () => LIVE_RE.test(location.pathname),
+        logger,
+        broadcastOpen: (path) => {
+            const channelId = LIVE_RE.exec(path)?.[1];
+            if (!channelId) return Promise.resolve(null);
+            return liveOpenDate(channelId).then(
+                (openDate) => {
+                    const ms = kstToMs(openDate);
+                    if (Number.isFinite(ms)) return ms;
+                    logger.warn("history open date unreadable, showing wall clock {channelId} {openDate}", { channelId, openDate });
+                    return null;
+                },
+                (error) => {
+                    logger.warn("history open date fetch failed, showing wall clock {channelId} {error}", { channelId, error });
+                    return null;
+                },
+            );
+        },
+        watched: (open) => watchedWallTime(open ?? NaN).wallTime,
+    });
     const SR = 16000;
     const WINDOW_SEC = 6;
     // Live parts arrive about once a second; the next window goes out as
@@ -93,6 +116,13 @@ type PlayerHost = HTMLElement & { cbSubWatched?: boolean };
     const SHOW_LEAD_SEC = 0.5;
     const MAX_AHEAD_SEC = 8;
     const MSE_STALE_MS = 4000;
+    // Decoded parts kept behind the playhead (16 kHz mono, ~64 KB/s; the
+    // part count cap below bounds it too).
+    const KEEP_BEHIND_SEC = 90;
+    // A playhead move larger than this between two checks is a seek; the
+    // player's own gap-skipping micro-seeks stay below it.
+    const SEEK_JUMP_SEC = 2;
+    const SEEK_FIRST_HOP_SEC = 2.5;
     const SILENCE_RMS = 0.004;
     const CLEAR_AFTER_MS = 7000;
     const CACHE_NAME = "chzzkbest-stt-v1";
@@ -260,7 +290,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
     let lastSampleAt = 0; // performance.now() when the last chunk arrived
 
     let tapNode: AudioWorkletNode | null = null;
-    let tapped: { video: SttVideo; key: string; source: AudioNode } | null = null; // { video, key, source }
+    let tapped: GainNode | null = null; // cbAudio's capture bus while connected
 
     function pushSamples(chunk: Float32Array) {
         for (let i = 0; i < chunk.length; i++) ring[(ringWrite + i) % ring.length] = chunk[i];
@@ -294,52 +324,43 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         return true;
     }
 
-    // Chrome: video.captureStream() hands over the decoded audio before the
-    // element's volume, mute and the pan, without rerouting the element, so
-    // subtitles work while muted and need no element graph at all. Where it
-    // is missing (Firefox has only mozCaptureStream, which silences the
-    // element) the tap hangs off the shared element source, before the
-    // panner; that path follows the player's volume and mute.
-    const liveTrack = (video: SttVideo) =>
-        (video.__cbSttStream ??= video.captureStream!()).getAudioTracks().find((t) => t.readyState === "live");
-    function audioKey(video: SttVideo) {
-        if (!video.captureStream) return "element";
-        try {
-            return liveTrack(video)?.id ?? "";
-        } catch (error) {
-            return "";
-        }
-    }
+    // The worklet hangs off cbAudio's capture bus once; the shared graph
+    // rebinds the bus to whatever <video> and track the player has, so a pan
+    // change or a swapped element never touches this connection. A new
+    // element or source restarts the ring, since its audio is discontinuous.
     function retap() {
         const video: SttVideo | null = cbAudio.playerVideo();
-        const ctx = cbAudio.running();
-        if (!ctx || !tapNode || !video) return;
-        const key = audioKey(video);
-        if (!key || (tapped?.video === video && tapped.key === key)) return;
-        let source: AudioNode | undefined;
-        if (key === "element") source = cbAudio.route(video)?.source;
-        else source = ctx.createMediaStreamSource(new MediaStream([liveTrack(video)!]));
-        if (!source) return;
-        untap();
+        if (!tapNode || !video) return;
+        if (!tapped) {
+            const bus = cbAudio.openCapture();
+            if (!bus) return;
+            bus.connect(tapNode);
+            tapped = bus;
+            resetRing();
+            logger.info("tapped capture bus {src}", { src: video.currentSrc.slice(0, 60) });
+        }
         if (!video.__cbSttSeekHook) {
             video.__cbSttSeekHook = true;
             video.addEventListener("seeking", resetRing);
             video.addEventListener("seeking", resetMedia);
         }
-        source.connect(tapNode);
-        tapped = { video, key, source };
-        resetRing();
-        logger.info("tapped {via} {src}", { via: key === "element" ? "element" : "captureStream", src: video.currentSrc.slice(0, 60) });
     }
     function untap() {
         if (!tapped) return;
         try {
-            tapped.source.disconnect(tapNode!);
+            tapped.disconnect(tapNode!);
         } catch (error) {
             // already disconnected
         }
+        cbAudio.closeCapture();
         tapped = null;
     }
+    cbAudio.onVideoChange((video, change) => {
+        if (!tapped) return;
+        logger.info("capture restarts on new {change} {src}", { change, src: video.currentSrc.slice(0, 60) });
+        resetRing();
+        retap();
+    });
 
     // ---- buffer tap: audio ahead of the playhead -------------------------
     // The player feeds fragmented MP4 parts (audio muxed with video, about
@@ -419,7 +440,9 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         media.chunks.push({ start, end, pcm });
         media.chunks.sort((a, b) => a.start - b.start);
         const video = cbAudio.playerVideo();
-        const keepFrom = (video?.currentTime ?? end) - WINDOW_SEC - 4;
+        // Played audio is kept for a while: a short 타임머신 rewind lands in
+        // the player's buffer, and the player appends nothing for it again.
+        const keepFrom = (video?.currentTime ?? end) - KEEP_BEHIND_SEC;
         media.chunks = media.chunks.filter((c) => c.end > keepFrom).slice(-120);
         media.lastAt = performance.now();
     }
@@ -468,7 +491,16 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
                 return append.call(this, data);
             };
     }
-    const mediaActive = () => state.config.source !== "realtime" && performance.now() - media.lastAt < MSE_STALE_MS;
+    // The buffer tap serves only while parts arrive and some part lies
+    // within reach of the playhead; after a seek into audio the tap never
+    // saw (or already dropped), the realtime tap takes over until it does.
+    const mediaActive = () => {
+        if (state.config.source === "realtime" || performance.now() - media.lastAt >= MSE_STALE_MS) return false;
+        const ct = cbAudio.playerVideo()?.currentTime;
+        if (ct === undefined) return true;
+        const next = media.chunks.find((c) => c.end > ct);
+        return !!next && next.start <= ct + MAX_AHEAD_SEC;
+    };
     // End of the decoded audio that runs on without a gap from `t` (or from
     // the first part after `t`, right after the tap starts).
     function coveredEnd(t: number) {
@@ -523,8 +555,8 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         statusText: "",
         text: "",
         textAt: 0,
-        // Processing time: seconds from sending the audio window to the
-        // model until its text is shown (see procS).
+        // Processing time: seconds the worker spent on the window, excluding
+        // any wait for the playhead (see procS).
         delayS: null,
         // Bumped when text starts again after the overlay cleared, so the
         // subtitle lines start over on a fresh line.
@@ -702,7 +734,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         }
     }
 
-    const procS = (job: JobBase, now: number) => (now - job.sentAt!) / 1000;
+    const procS = (shown: { ms: number }) => shown.ms / 1000;
     function show(job: WindowShown, e2eAt: (frac: number) => number) {
         const now = performance.now();
         const fresh = state.textAt && now - state.textAt < CLEAR_AFTER_MS;
@@ -710,12 +742,12 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         state.text = mergeTranscript(fresh ? state.text : "", job.text).slice(-300);
         state.tent = "";
         state.textAt = now;
-        state.delayS = procS(job, now);
+        state.delayS = procS(job);
         state.delayId = job.id;
         for (let i = 1; i <= 9; i++) stats.e2eS.push(e2eAt(i / 10));
         if (stats.log.length < 400) stats.log.push({ t: Math.round(now), src: job.source, raw: job.text, tokens: job.tokens, ms: Math.round(job.ms) });
         render();
-        requestAnimationFrame(() => stats.renderMs.push(performance.now() - now));
+        if (!document.hidden) requestAnimationFrame(() => stats.renderMs.push(performance.now() - now));
     }
     // Streaming results replace the open text instead of merging into it.
     // tokenBirth[i] remembers when token i (at that id) was first heard, so
@@ -756,7 +788,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         }
         if (res.decoded || res.final) {
             state.textAt = now;
-            state.delayS = procS(res, now);
+            state.delayS = procS(res);
             state.delayId = res.id;
         }
         if (stats.log.length < 400 && res.decoded) stats.log.push({ t: Math.round(now), src: res.source, conf: res.conf, tent: res.tent, hist: res.hist, tokens: res.tokens, ms: Math.round(res.ms) });
@@ -778,14 +810,51 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         state.lastEndMedia = -Infinity;
         state.due.length = 0;
     }
+    // A seek (타임머신 rewind, its return to live, a VOD jump) makes every
+    // window, result and shown line from the old position wrong at the new
+    // one. `from` is the playhead before the jump: lines still on screen
+    // are recorded in the history at that moment, not at the new one.
+    let seekReset = false; // the next streaming hop starts a fresh context
+    function onSeek(video: HTMLVideoElement, from: number) {
+        const to = video.currentTime;
+        logger.info("seek {from} → {to}, captions restart", { from, to });
+        state.lastCt = to;
+        state.runId++; // drops the result still in flight
+        seekReset = true;
+        resetRing();
+        resetMedia();
+        resetLines({ media: from, shiftSec: to - from });
+        state.text = "";
+        state.tent = "";
+        state.history = "";
+        state.textAt = 0;
+        state.textEpoch++;
+        tokenBirth = [];
+        // The buffer-health baseline belongs to the old position: a rewind
+        // inside the buffer sees tens of seconds ahead, and the live edge
+        // after it would read as starved until the samples aged out.
+        gov.aheads.length = 0;
+        render();
+    }
+    document.addEventListener(
+        "seeking",
+        (event) => {
+            const video = cbAudio.playerVideo();
+            if (!state.enabled || !video || event.target !== video) return;
+            if (Math.abs(video.currentTime - state.lastCt) > SEEK_JUMP_SEC) onSeek(video, state.lastCt);
+        },
+        true
+    );
 
     // ---- yielding to playback ---------------------------------------------
     // WebGPU has no priority between tabs or queues, so subtitles get only
     // what playback leaves: the model waits at least as long as its last
     // run took (≤50% occupancy), backs off further when frames drop, the
     // frame clock stutters or the video buffer thins, and stops entirely
-    // while the tab is hidden or the video paused. Loading is gated the
-    // same way. Latency is what this costs.
+    // while the video is paused. Loading is gated the same way. Latency is
+    // what this costs. A hidden tab keeps transcribing so the history holds
+    // what was said meanwhile; it renders no frames, so only the buffer and
+    // stall checks apply there.
     const gov = {
         factor: 1, // wait after a run = run time × factor
         pauseUntil: 0,
@@ -821,7 +890,6 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
     }
     function playbackVerdict() {
         const video = cbAudio.playerVideo();
-        if (document.hidden) return "hidden";
         if (!video || video.paused) return "paused";
         const now = performance.now();
         if (now - gov.waitingAt < 5000) return "stall";
@@ -831,6 +899,8 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         // Live edges keep only a few seconds ahead, so "thin" is relative
         // to what this stream normally holds.
         if (ahead < Math.min(10, 0.6 * quantile(gov.aheads, 0.5))) return "buffer";
+        // No frames render while hidden: drop and jank samples say nothing.
+        if (document.hidden) return "ok";
         const q = video.getVideoPlaybackQuality?.();
         if (q) {
             gov.quality.push({ t: now, dropped: q.droppedVideoFrames, total: q.totalVideoFrames, inFlight: state.busy });
@@ -846,10 +916,12 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         if (gov.frames.length >= 30 && quantile(gov.frames, 0.95) > 50) return "jank";
         return "ok";
     }
+    let governedAt = 0;
     function govern() {
         if (!state.enabled) return;
         const verdict = playbackVerdict();
         const now = performance.now();
+        governedAt = now;
         const open = verdict === "ok";
         if (verdict !== "ok") gov.reasons[verdict] = (gov.reasons[verdict] || 0) + 1;
         if (open !== gov.open) {
@@ -868,6 +940,33 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
     const mayRun = () => gov.open && performance.now() >= Math.max(gov.nextRunAt, gov.pauseUntil);
     document.addEventListener("waiting", () => (gov.waitingAt = performance.now()), true);
     setInterval(govern, 500);
+    // A hidden tab's timers slow to 1 Hz once it is silent and to about once
+    // a minute after 5 minutes; a worker's timers keep their rate, so while
+    // hidden a worker clock drives scheduling and the governor.
+    let clock: Worker | null = null;
+    function syncClock() {
+        const want = document.hidden && state.enabled;
+        if (want === !!clock) return;
+        if (!want) {
+            clock!.terminate();
+            clock = null;
+            return;
+        }
+        try {
+            const url = URL.createObjectURL(new Blob(["setInterval(() => postMessage(0), 100)"], { type: "text/javascript" }));
+            clock = new Worker(url);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            logger.warn("hidden-tab clock unavailable, page timers only {error}", { error });
+            return;
+        }
+        clock.onmessage = () => {
+            syncClock();
+            if (performance.now() - governedAt >= 500) govern();
+            schedule();
+        };
+    }
+    document.addEventListener("visibilitychange", syncClock);
 
     const pending = new Map<number, Job>();
     // Always transcribe the newest audio; when inference is slower than the
@@ -876,8 +975,9 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         if (!state.enabled) return;
         const video = cbAudio.playerVideo();
         if (video) {
-            // A jump of the playhead (seek, live resync) voids the buffer queue.
-            if (Math.abs(video.currentTime - state.lastCt) > 3) resetMedia();
+            // A jump of the playhead the seeking event did not report (live
+            // resync, a throttled tab) restarts the captions the same way.
+            if (Math.abs(video.currentTime - state.lastCt) > SEEK_JUMP_SEC) onSeek(video, state.lastCt);
             state.lastCt = video.currentTime;
         }
         showDue();
@@ -893,14 +993,25 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             // keeps the rest. A gap (seek, stall, long skip) restarts it.
             if (video && mediaActive()) {
                 const ct = video.currentTime;
-                const end = Math.min(coveredEnd(ct), ct + MAX_AHEAD_SEC);
+                // Right after a seek the first hop starts at the playhead and
+                // stays short, so the first words show within seconds instead
+                // of after the whole look-ahead.
+                const end = Math.min(coveredEnd(ct), ct + (seekReset ? SEEK_FIRST_HOP_SEC : MAX_AHEAD_SEC));
                 if (!(end > ct - 1)) return;
                 let from = state.lastEndMedia;
-                if (!(from > end - 8) || from > end) {
+                if (seekReset) {
+                    // At the live edge the player holds about a second
+                    // ahead, so the first hop reaches back into audio just
+                    // played instead of waiting for a full hop to buffer.
+                    const start = Math.min(ct, end - SEEK_FIRST_HOP_SEC);
+                    from = Math.max(start, media.chunks.find((c) => c.end > start)?.start ?? start);
+                    if (end - from < 1) return;
+                    reset = true;
+                } else if (!(from > end - 8) || from > end) {
                     from = Math.max(end - 2, media.chunks.find((c) => c.end > end - 2)?.start ?? end - 2);
                     reset = true;
                 }
-                if (end - from < hop) return;
+                if (!reset && end - from < hop) return;
                 state.lastEndMedia = end;
                 pcm = readMedia(from, end);
                 job = { source: "media", end, newSec: end - from, sec: end - from };
@@ -915,6 +1026,8 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
                 pcm = readLast(n);
                 job = { source: "realtime", capturedAt: lastSampleAt, newSec: n / SR, sec: n / SR };
             }
+            if (seekReset) reset = true;
+            seekReset = false;
         } else if (video && mediaActive()) {
             const ct = video.currentTime;
             const end = Math.min(coveredEnd(ct), ct + MAX_AHEAD_SEC);
@@ -960,7 +1073,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         state.busy = true;
         (async () => {
             if (!quiet) for (const stage of preprocess) pcm = await stage(pcm, SR);
-            const common = { id, pcm, lang: "ko", gapMs: gov.factor >= 2 ? 6 : 0, pace: state.config.pace === "raf", vad: state.config.vad, engine: state.config.engine };
+            const common = { id, pcm, lang: "ko", gapMs: gov.factor >= 2 ? 6 : 0, pace: state.config.pace === "raf" && !document.hidden, vad: state.config.vad, engine: state.config.engine };
             if (stream) state.worker!.postMessage({ type: "stream", ...common, reset, quiet, maxTokens: Math.round(16 + 12 * job.newSec) }, [pcm.buffer]);
             else state.worker!.postMessage({ type: "run", ...common, newPcm, maxTokens: 96 }, [pcm.buffer]);
         })().catch((error) => {
@@ -986,7 +1099,6 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         .cb-stt-lines > div > span { background: rgba(0,0,0,var(--cb-stt-bg, .72)); color: #fff; padding: .05em .4em; border-radius: 4px; -webkit-box-decoration-break: clone; box-decoration-break: clone; text-shadow: 0 0 2px #000, 0 1px 2px #000; }
         .cb-stt-status { align-self: center; margin-top: 6px; font: 500 13px/1.4 system-ui, sans-serif; color: #fff; background: rgba(0,0,0,.72); padding: 3px 10px; border-radius: 999px; }
         .cb-stt-status:empty { display: none; }
-        .cb-stt-button[aria-pressed="true"] .pzp-ui-icon { color: #00ffa3; }
     `;
     let overlay: HTMLDivElement | null = null;
     function ensureOverlay() {
@@ -1020,9 +1132,24 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
     // against the committed tail (afterCommitted) and only what follows it
     // is laid out, so a sliding decoder window never rewrites shown lines.
     const VISIBLE_LINES = 2;
-    const lines: { frozen: string[]; open: Word[]; key: string; layout: string; misses: number; dom: string; epoch: number; base: number } = { frozen: [], open: [], key: "", layout: "", misses: 0, dom: "", epoch: 0, base: 0 };
+    const lines: { frozen: string[]; open: Word[]; key: string; layout: string; misses: number; dom: string; epoch: number; base: number; recorded: number } = { frozen: [], open: [], key: "", layout: "", misses: 0, dom: "", epoch: 0, base: 0, recorded: 0 };
     stats.lines = lines;
-    function resetLines() {
+    // History records each line as it freezes. `recorded` counts the
+    // leading open words already recorded (a reflow reopens the tail of a
+    // recorded line), which the next record skips.
+    // `at` stamps a line that was on screen before a seek with the moment
+    // it was shown: its media time, and how far the seek moved the playhead.
+    type LineStamp = { media: number; shiftSec: number };
+    function recordLine(words: string[], at?: LineStamp) {
+        const text = words.slice(lines.recorded).join(" ");
+        lines.recorded = Math.max(0, lines.recorded - words.length);
+        captionLog.append(text, at ? at.media : (cbAudio.playerVideo()?.currentTime ?? null), at?.shiftSec ?? 0);
+    }
+    function resetLines(at?: LineStamp) {
+        // The confirmed part of the open line was the end of what was
+        // shown; it never freezes, so it is recorded as it leaves.
+        recordLine(lines.open.filter((w) => !w.tent).map((w) => w.t), at);
+        lines.recorded = 0;
         lines.frozen = [];
         lines.open = [];
         lines.key = "";
@@ -1095,6 +1222,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
                 cur.push(w);
             }
             lines.frozen = [...lines.frozen.slice(0, -4), ...out];
+            lines.recorded = cur.length;
             lines.key = "";
         }
         lines.layout = layout;
@@ -1114,6 +1242,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
                 for (const w of words) {
                     if (cur.length && !fits([...cur, w])) {
                         lines.frozen.push(cur.map((x) => x.t).join(" "));
+                        recordLine(cur.map((x) => x.t));
                         cur = [];
                     }
                     cur.push(w);
@@ -1160,25 +1289,18 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         (overlay.querySelector(".cb-stt-status") as HTMLElement).textContent = state.statusText;
     }
 
+    const sttButton = registerPlayerButton({
+        className: "cb-stt-button",
+        label: "실시간 자막",
+        icon: ICON,
+        order: 20,
+        // A split column the host has not given subtitles gets no button.
+        when: () => (LIVE_RE.test(location.pathname) || VIDEO_RE.test(location.pathname)) && cbSplit.sttHere(),
+        pressed: () => state.enabled,
+        onClick: () => setEnabled(!state.enabled),
+    });
     function ensureButton() {
-        const bar = document.querySelector(".pzp-pc__bottom-buttons-right");
-        if (!bar) return;
-        let button = bar.querySelector(".cb-stt-button");
-        if (!button) {
-            button = document.createElement("button");
-            button.className = "cb-stt-button pzp-button pzp-pc-ui-button";
-            button.innerHTML =
-                '<span class="pzp-button__tooltip pzp-button__tooltip--top">실시간 자막</span><span class="pzp-ui-icon">' +
-                ICON +
-                "</span>";
-            button.addEventListener("click", (event) => {
-                event.stopPropagation();
-                setEnabled(!state.enabled);
-            });
-            bar.prepend(button);
-        }
-        button.setAttribute("aria-pressed", String(state.enabled));
-        button.setAttribute("aria-label", "실시간 자막");
+        sttButton.refresh();
     }
 
     // ---- 자막 설정: 플레이어 설정 패널 안의 네이티브 항목 ----------------
@@ -1259,6 +1381,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
                 Object.entries(PAGES)
                     .map(([key, [title, options, current]]) => homeRow(`data-cb-page="${key}" expandable="true"`, title, valueRight(labelOf(options, current()))))
                     .join("") +
+                homeRow('data-cb-act="history" role="menuitem"', "자막 기록", "") +
                 homeRow('data-cb-act="clear-cache" role="menuitem"', `캐시 삭제 (${cacheMB ?? "…"} MB)`, "") +
                 "</div>"
             );
@@ -1315,6 +1438,8 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             else openPage(host, "main");
         } else if (row?.dataset.cbAct === "toggle") {
             setEnabled(!state.enabled);
+        } else if (row?.dataset.cbAct === "history") {
+            captionLog.open();
         } else if (row?.dataset.cbAct === "clear-cache") {
             caches.delete(CACHE_NAME).then(refreshCacheSize, (error) => sttError("cache delete failed", "settings", error));
             setStatus(state.enabled ? state.statusText : "");
@@ -1448,6 +1573,8 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
     function tick() {
         try {
             if (!onPlayerPage()) return;
+            // The SPA swaps pages in place; a new live/video path starts a new history.
+            captionLog.setPath((LIVE_RE.exec(location.pathname) ?? VIDEO_RE.exec(location.pathname))![0]);
             if (!cbSplit.sttHere()) return park();
             if (parked) unpark();
             ensureButton();

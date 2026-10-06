@@ -53,18 +53,20 @@ export function mergeTranscript(prev: string, next: string, tailChars = 60, head
 // A block that closes records how many tokens the text had then (minus
 // the rollback); when the block falls out of the kept range those
 // tokens leave the forced prefix and become history.
-export interface ClosedBlock {
+// `af` holds the block's encoder output once computed (the worker keeps it
+// on the GPU); closeBlocks never reads it.
+export interface ClosedBlock<F = unknown> {
     pcm: Float32Array;
-    af: Float32Array | null;
+    af: F | null;
     mark: number;
 }
-export interface BlockState {
+export interface BlockState<F = unknown> {
     open: Float32Array;
-    closed: ClosedBlock[];
+    closed: ClosedBlock<F>[];
     tokens: number[];
     histIds: number[];
 }
-export function closeBlocks(st: BlockState, block: number, keep: number, rollback: number, histKeep: number): number[] {
+export function closeBlocks<F>(st: BlockState<F>, block: number, keep: number, rollback: number, histKeep: number): number[] {
     const slid: number[] = [];
     while (st.open.length >= block) {
         st.closed.push({ pcm: st.open.slice(0, block), af: null, mark: Math.max(0, st.tokens.length - rollback) });
