@@ -34,7 +34,18 @@ interface VadState {
     ctx: Float32Array;
     carry: Float32Array;
 }
-type StreamState = BlockState<EncoderResult> & { quietSec: number };
+// The prefix [system + history + closed-block audio] whose KV sits in the
+// engine cache at rows [0, len): preLen rows of system + history, then the
+// audio of `blocks` in order. `slides` counts blocks evicted by shiftKV since
+// the prefix was last computed whole.
+interface PrefixKv {
+    hist: number[];
+    blocks: BlockState<EncoderResult>["closed"];
+    preLen: number;
+    len: number;
+    slides: number;
+}
+type StreamState = BlockState<EncoderResult> & { quietSec: number; pendingHist: number[]; kv: PrefixKv | null };
 type StreamResult = Omit<ResultMessage, "type" | "id" | "col">;
 
 // The decoder engine and the encoder are built for exactly these files.
@@ -303,6 +314,7 @@ async function load({ repo, rev, cacheName, engineAssets }: LoadMessage) {
     // of the Cache Storage entries filled above.
     engine = await createEngine(gpu, {
         manifestUrl: "engine:manifest.json",
+        LMAX: ENGINE_LMAX,
         urls: {
             [WEIGHTS_FILE]: base + WEIGHTS_FILE,
             "qknorm.bin": "engine:qknorm.bin",
@@ -342,12 +354,13 @@ async function load({ repo, rev, cacheName, engineAssets }: LoadMessage) {
 // Greedy decode of a prompt whose audio span [audioStart, audioStart +
 // audio.frames) is filled from the encoder's GPU buffer. Returns the
 // generated ids, eos excluded. The engine decodes a whole run in one
-// go, so its output is cut where `stop` first holds.
-async function decodeGreedy(ids: number[], audio: GPUBuffer, audioStart: number, audioTokens: number, maxTokens: number, stop: (gen: readonly number[]) => boolean, pace = false) {
+// go, so its output is cut where `stop` first holds. With `past`, ids
+// continue a prompt whose first `past` rows are already in the KV cache.
+async function prefillPaced(ids: number[], audio: GPUBuffer, audioStart: number, audioTokens: number, pace: boolean, past: number) {
     const eng = engine!;
-    const P = model!.cfg.prompt;
-    if (ids.length > eng.LMAX) throw new Error(`prompt of ${ids.length} tokens exceeds the engine's ${eng.LMAX}-token cache`);
-    const t0 = performance.now();
+    if (past + ids.length > eng.LMAX) throw new Error(`prompt of ${past} cached + ${ids.length} tokens exceeds the engine's ${eng.LMAX}-token cache`);
+    // A prefill from row 0 overwrites whatever prefix a stream cached.
+    if (past === 0) kvOwner = null;
     stage = "prefill";
     // A whole prefill is ~600 ms of GPU work: as one submit it drops video
     // frames, and the governor answers dropped frames with a 10 s pause.
@@ -358,10 +371,16 @@ async function decodeGreedy(ids: number[], audio: GPUBuffer, audioStart: number,
               await paced(true);
           }
         : undefined;
-    const pre = await eng.prefill(ids, audio, { audioStart, audioTokens, audioPadId: P.audio_pad_id, betweenLayers });
+    return eng.prefill(ids, audio, { audioStart, audioTokens, audioPadId: model!.cfg.prompt.audio_pad_id, betweenLayers, past });
+}
+async function decodeGreedy(ids: number[], audio: GPUBuffer, audioStart: number, audioTokens: number, maxTokens: number, stop: (gen: readonly number[]) => boolean, pace = false, past = 0) {
+    const eng = engine!;
+    const P = model!.cfg.prompt;
+    const t0 = performance.now();
+    const pre = await prefillPaced(ids, audio, audioStart, audioTokens, pace, past);
     const tPre = performance.now();
     const out = [pre.token];
-    const cap = Math.min(maxTokens - 1, eng.LMAX - ids.length);
+    const cap = Math.min(maxTokens - 1, eng.LMAX - past - ids.length);
     if (!pre.done && cap > 0) {
         stage = "decode";
         await paced(pace, true);
@@ -449,21 +468,36 @@ async function vadSpeech(pcm: Float32Array) {
 }
 
 // ---- streaming decode (QwenLM streaming_transcribe scheme) --------
-// Each hop re-encodes only the open block, reuses the closed block's
-// features (kept on the GPU), forces the previous text minus its last
-// ROLLBACK tokens as the start of the answer and decodes only the
-// continuation. Older blocks slide out with their text (closeBlocks),
-// so compute and memory stay flat on an endless stream.
-// A pause (no speech for QUIET_RESET_SEC) ends the utterance.
-// 3 s, not the model's 8 s attention window: the prompt (two blocks of
-// audio) and with it the prefill stay short, so hops keep a ~1-2 s
-// cadence. 3 s is 300 mel frames, three whole 100-frame conv chunks, so
-// no block is zero-padded mid-chunk.
+// Each hop re-encodes only the open block and forces the previous text
+// minus its last ROLLBACK tokens as the start of the answer. The prompt is
+// [system + history][closed blocks][open block][suffix][forced text]; the
+// KV of everything before the open block is kept across hops (PrefixKv),
+// so a hop prefills only the blocks closed since the last hop, the open
+// block and what follows it.
+// Up to KEEP_BLOCKS closed blocks stay as audio context. Past that the
+// oldest one is evicted from the cache in place (engine.shiftKV) rather
+// than recomputing the prefix: the blocks after it keep the KV they
+// computed while it was still in front of them, an approximation. Its text
+// waits in pendingHist instead of entering the cached history, which the
+// audio after it never attended to. At a pause (a quiet hop) the pending
+// text joins the history and the prefix is recomputed whole, so the exact
+// recompute lands in silence and resets the drift.
+// A pause of QUIET_RESET_SEC ends the utterance.
+// 3 s blocks: 300 mel frames, three whole 100-frame conv chunks, so no
+// block is zero-padded mid-chunk, and the per-hop prefill (open block +
+// suffix + forced text) stays short.
 const BLOCK = 3 * 16000;
+const KEEP_BLOCKS = 8; // 24 s of closed audio
 const ROLLBACK = 5;
-const newStream = (): StreamState => ({ open: new Float32Array(0), closed: [], tokens: [], histIds: [], quietSec: 0 });
+// Prompt rows the engine's KV cache holds: ~35 system + history, 8 × 39
+// closed-block audio, ~39 open, the forced text of 24 s of speech and the
+// decode budget fit with room to spare.
+const ENGINE_LMAX = 1024;
+const newStream = (): StreamState => ({ open: new Float32Array(0), closed: [], tokens: [], histIds: [], quietSec: 0, pendingHist: [], kv: null });
 const cols = new Map<string | null, { st: StreamState; vs: VadState | null }>(); // column id -> { st, vs }
 let st = newStream();
+// The engine has one KV cache: the column whose prefix it holds.
+let kvOwner: StreamState | null = null;
 const freeBlocks = (blocks: StreamState["closed"]) => {
     for (const b of blocks) b.af?.buffer.destroy();
 };
@@ -473,15 +507,78 @@ const resetStream = () => {
     st.closed = [];
     st.tokens = [];
     st.histIds = [];
+    st.pendingHist = [];
     st.quietSec = 0;
+    st.kv = null;
 };
-// closeBlocks drops the oldest closed blocks; their features go with them.
-const slide = () => {
+const cachedKv = () => (kvOwner === st ? st.kv : null);
+// Closes full blocks; the oldest past KEEP_BLOCKS leave, their tokens
+// go to pendingHist and their rows leave the cached prefix.
+async function slide() {
     const before = st.closed.slice();
-    const slid = closeBlocks(st, BLOCK, 1, ROLLBACK, HIST_CONTEXT, bytesOf);
-    freeBlocks(before.filter((b) => !st.closed.includes(b)));
-    return slid;
+    const slid = closeBlocks(st, BLOCK, KEEP_BLOCKS, ROLLBACK, bytesOf);
+    const gone = before.filter((b) => !st.closed.includes(b));
+    st.pendingHist.push(...slid);
+    const kv = cachedKv();
+    let slides = 0;
+    const t0 = performance.now();
+    for (const b of gone) {
+        if (!kv || kv.blocks[0] !== b) continue;
+        const A = b.af!.frames;
+        engine!.shiftKV(kv.preLen + A, kv.preLen, kv.len - kv.preLen - A);
+        kv.len -= A;
+        kv.blocks.shift();
+        kv.slides++;
+        slides++;
+    }
+    if (slides) await device!.queue.onSubmittedWorkDone();
+    freeBlocks(gone);
+    return { slid, slides, shiftMs: slides ? performance.now() - t0 : 0 };
+}
+const prefixIds = (hist: readonly number[]) => {
+    const P = model!.cfg.prompt;
+    // History tail goes into the (otherwise empty) system turn.
+    // A loop cut to one copy here only: the prompt never primes the
+    // decoder with it, and the history shown stays as it was.
+    return [...P.prefix_ids.slice(0, 3), ...trimLoop([], hist.slice(-HIST_CONTEXT)), ...P.prefix_ids.slice(3)];
 };
+async function encodeClosed(pace: boolean) {
+    let ms = 0;
+    for (const b of st.closed) {
+        if (b.af) continue;
+        await paced(pace, true);
+        const te = performance.now();
+        b.af = await encode(b.pcm);
+        ms += performance.now() - te;
+    }
+    return ms;
+}
+// At a pause: pending text joins the history, and the prefix KV is
+// recomputed whole for the history and blocks as they are now.
+async function rebuildAtPause(pace: boolean) {
+    const kv = cachedKv();
+    if (!st.pendingHist.length && !(kv && kv.slides)) return null;
+    st.histIds = [...st.histIds, ...st.pendingHist].slice(-HIST_CONTEXT);
+    st.pendingHist = [];
+    st.kv = null;
+    const t0 = performance.now();
+    await gate();
+    await encodeClosed(pace);
+    const pre = prefixIds(st.histIds);
+    const parts = st.closed.map((b) => b.af!);
+    const A = parts.reduce((a, p) => a + p.frames, 0);
+    const ids = [...pre, ...Array<number>(A).fill(model!.cfg.prompt.audio_pad_id)];
+    const audio = parts.length ? concatFeatures(parts) : null;
+    await paced(pace, true);
+    try {
+        await prefillPaced(ids, audio?.buffer ?? noAudio(), pre.length, A, pace, 0);
+    } finally {
+        if (audio?.owned) audio.buffer.destroy();
+    }
+    st.kv = { hist: st.histIds.slice(), blocks: st.closed.slice(), preLen: pre.length, len: ids.length, slides: 0 };
+    kvOwner = st;
+    return { rebuildMs: performance.now() - t0, rebuildTokens: ids.length };
+}
 const bytesOf = (ids: readonly number[]) => {
     const { inv, byteOf } = model!;
     const bytes: number[] = [];
@@ -535,31 +632,34 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
             const hist = textOf(st.tokens);
             // The finished utterance stays as context for the next one;
             // only an explicit reset (m.reset) forgets it.
-            const histIds = [...st.histIds, ...st.tokens].slice(-HIST_CONTEXT);
+            const histIds = [...st.histIds, ...st.pendingHist, ...st.tokens].slice(-HIST_CONTEXT);
             resetStream();
             st.histIds = histIds;
             return { ...base, hist, conf: "", tent: "", ids: [], final: true, totalMs: performance.now() - t0 };
         }
         // Hold the tentative text; the next speech hop re-decodes it.
-        slide();
-        return { ...base, totalMs: performance.now() - t0 };
+        const s = await slide();
+        const rb = m.exactKv ? null : await rebuildAtPause(m.pace);
+        // The reference applies pending history at the same hops.
+        if (m.exactKv && st.pendingHist.length) {
+            st.histIds = [...st.histIds, ...st.pendingHist].slice(-HIST_CONTEXT);
+            st.pendingHist = [];
+        }
+        return { ...base, ...(s.slid.length ? { hist: textOf(s.slid) } : {}), slides: s.slides, shiftMs: s.shiftMs, ...rb, totalMs: performance.now() - t0 };
     }
     st.quietSec = 0;
-    const slid = slide();
+    const { slid, slides, shiftMs } = await slide();
     const { cfg } = model!;
     await gate();
     const tMel = performance.now();
-    let encMs = 0;
-    const parts: EncoderResult[] = [];
-    for (const b of st.closed) {
-        if (!b.af) {
-            await paced(m.pace, true);
-            const te = performance.now();
-            b.af = await encode(b.pcm);
-            encMs += performance.now() - te;
-        }
-        parts.push(b.af);
-    }
+    let encMs = await encodeClosed(m.pace);
+    let kv = m.exactKv ? null : cachedKv();
+    if (kv && (kv.hist.join() !== st.histIds.join() || kv.blocks.some((b, i) => st.closed[i] !== b))) kv = null;
+    // Blocks closed since the last hop: their KV is computed in this
+    // prefill, right after the cached prefix, and joins it afterwards.
+    const fresh = kv ? st.closed.slice(kv.blocks.length) : st.closed;
+    const parts: EncoderResult[] = fresh.map((b) => b.af!);
+    const closedA = parts.reduce((a, p) => a + p.frames, 0);
     let open: EncoderResult | null = null;
     if (st.open.length >= 1600) {
         await paced(m.pace, true);
@@ -573,14 +673,12 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
     // The loop check runs on the text the user has seen + forced + new
     // tokens, since a loop crosses hops and history rows; only forced and
     // new tokens are ever cut. A loop is never fed back as forced text.
-    const seen = st.histIds;
+    const seen = [...st.histIds, ...st.pendingHist];
     const forced = trimLoop(seen, st.tokens.slice(0, Math.max(0, st.tokens.length - ROLLBACK)));
     const lead = [...seen, ...forced].slice(-LOOP_SPAN);
     const stopStream = (gen: readonly number[]) => loopStop([...lead, ...gen]);
-    // History tail goes into the (otherwise empty) system turn.
-    // A history loop is cut to one copy in the prompt only: it never primes
-    // the decoder, and the history shown stays as it was.
-    const pre = [...P.prefix_ids.slice(0, 3), ...trimLoop([], st.histIds.slice(-HIST_CONTEXT)), ...P.prefix_ids.slice(3)];
+    const pre = kv ? [] : prefixIds(st.histIds);
+    const past = kv ? kv.len : 0;
     const audioAt = pre.length;
     const ids = [...pre, ...Array<number>(A).fill(P.audio_pad_id), ...P.suffix_ids, ...(cfg.language_prefix_ids[m.lang] || []), ...forced];
     await paced(m.pace, true);
@@ -588,14 +686,21 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
     const audio = parts.length ? concatFeatures(parts) : null;
     let r;
     try {
-        r = await decodeGreedy(ids, audio?.buffer ?? noAudio(), audioAt, A, m.maxTokens, stopStream, m.pace);
+        r = await decodeGreedy(ids, audio?.buffer ?? noAudio(), audioAt, A, m.maxTokens, stopStream, m.pace, past);
     } finally {
         if (audio?.owned) audio.buffer.destroy();
         open?.buffer.destroy();
     }
+    if (kv) {
+        kv.len += closedA;
+        kv.blocks.push(...fresh);
+    } else if (!m.exactKv) {
+        st.kv = { hist: st.histIds.slice(), blocks: st.closed.slice(), preLen: pre.length, len: pre.length + closedA, slides: 0 };
+        kvOwner = st;
+    }
     const tEnd = performance.now();
     const hist = slid.length ? textOf(slid) : "";
-    const timing = { melEncMs: tPre - tMel, encMs, prefillMs: r.prefillMs, decodeMs: tEnd - tPre, totalMs: tEnd - t0, tokens: r.gen.length, prefill: ids.length, audioTokens: A, pace: m.pace ? { k: pacer.k, frameMs: +pacer.frameMs.toFixed(1), frames: pacer.frames } : null };
+    const timing = { melEncMs: tPre - tMel, encMs, prefillMs: r.prefillMs, decodeMs: tEnd - tPre, totalMs: tEnd - t0, tokens: r.gen.length, prefill: ids.length, ctx: past + ids.length, cached: past, audioTokens: A, slides, shiftMs, pace: m.pace ? { k: pacer.k, frameMs: +pacer.frameMs.toFixed(1), frames: pacer.frames } : null };
     const prevLen = st.tokens.length;
     st.tokens = trimLoop(seen, [...forced, ...r.gen]);
     const bytes = bytesOf(st.tokens);

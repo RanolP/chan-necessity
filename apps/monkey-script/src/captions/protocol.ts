@@ -44,6 +44,8 @@ export interface StreamMessage extends JobCommon {
     type: "stream";
     reset: boolean;
     quiet: boolean;
+    /** Prefill every hop from scratch instead of reusing the cached prefix KV: the reference the sliding cache is checked against. */
+    exactKv?: boolean;
 }
 export interface RunMessage extends JobCommon {
     type: "run";
@@ -114,7 +116,16 @@ export interface ResultMessage {
     melEncMs?: number;
     encMs?: number;
     prefill?: number;
+    /** Prompt rows in the KV cache after this hop's prefill, of which `cached` were reused from earlier hops. */
+    ctx?: number;
+    cached?: number;
     audioTokens?: number;
+    /** Closed blocks evicted from the cached prefix this hop (engine.shiftKV), and the time the shifts took. */
+    slides?: number;
+    shiftMs?: number;
+    /** Set on a quiet hop that recomputed the prefix whole. */
+    rebuildMs?: number;
+    rebuildTokens?: number;
     col?: string;
 }
 export interface ErrorMessage {

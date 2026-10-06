@@ -59,6 +59,9 @@ export interface PrefillOptions {
   /** Ends a command buffer after each layer and awaits this before the next, so a caller sharing the GPU with
    *  video can yield frames instead of holding the queue for the whole prefill. Same dispatches, same results. */
   betweenLayers?: () => Promise<void>;
+  /** Positions already in the KV cache (see shiftKV): ids sit at positions past.., attend to the cached rows,
+   *  and leave rows 0..past untouched. ids alone must equal the tail of the full prompt for the result to match it. */
+  past?: number;
 }
 export interface PrefillResult {
   /** Greedy first token, reduced on the GPU from the final prefill logits. */
@@ -116,6 +119,7 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     lm: await mk("lm", K.gemvWGSL({ K: H, N: LM_HALF, mode: "lm", norm: true })),
     argmax: await mk("argmax", K.argmaxWGSL({ NP, eos: C.eos, LMAX })),
     prefillArgmax: await mk("prefill-argmax", K.argmaxPrefillWGSL({ NP, eos: C.eos })),
+    kvShift: await mk("kv-shift", K.kvShiftWGSL({ LMAX, theta: C.rope_theta })),
   };
   // ---- weights: one GPU buffer per fused tensor; LM head split by rows into two halves (128 MiB binding cap)
   const T: Record<string, ManifestTensor & { parts: { start: number; len: number; buf: GPUBuffer }[] }> = {};
@@ -218,6 +222,8 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
   ]);
   const argBG = bg(P.argmax, 0, [st, part]);
   const prefillArgBG = [bg(P.prefillArgmax, 0, [st, part]), bg(P.prefillArgmax, 1, [prefillTokenU])];
+  const shiftU = uni([0, 0, 0, 0]);
+  const shiftBG = [bg(P.kvShift, 0, [kc, vc]), bg(P.kvShift, 1, [shiftU])];
   await device.queue.onSubmittedWorkDone();
 
   let dispatches = 0;
@@ -254,9 +260,10 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
       device.queue.writeBuffer(vc, dst, pv.buffer, pv.byteOffset + src, row);
     }
   }
-  async function prefill(ids: Int32Array | readonly number[], audioFeatures: GPUBuffer | Float32Array, { audioStart, audioTokens, audioPadId, debug, betweenLayers }: PrefillOptions): Promise<PrefillResult> {
+  async function prefill(ids: Int32Array | readonly number[], audioFeatures: GPUBuffer | Float32Array, { audioStart, audioTokens, audioPadId, debug, betweenLayers, past = 0 }: PrefillOptions): Promise<PrefillResult> {
     const Sx = ids.length;
-    if (!Number.isInteger(Sx) || Sx <= 0 || Sx > LMAX) throw new RangeError(`prefill: ids length ${Sx} is outside 1..${LMAX}`);
+    if (!Number.isInteger(past) || past < 0) throw new RangeError(`prefill: invalid past ${past}`);
+    if (!Number.isInteger(Sx) || Sx <= 0 || past + Sx > LMAX) throw new RangeError(`prefill: ids length ${Sx} after ${past} cached is outside 1..${LMAX - past}`);
     if (!Number.isInteger(audioStart) || audioStart < 0) throw new RangeError(`prefill: invalid audioStart ${audioStart}`);
     const cpuAudio = audioFeatures instanceof Float32Array;
     const inferredAudioTokens = cpuAudio ? audioFeatures.length / H : undefined;
@@ -273,9 +280,9 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     const audio = cpuAudio ? prefillAudio : audioFeatures;
     device.queue.writeBuffer(prefillIds, 0, idData);
     if (cpuAudio) device.queue.writeBuffer(prefillAudio, 0, audioFeatures.buffer, audioFeatures.byteOffset, audioFeatures.byteLength);
-    device.queue.writeBuffer(prefillTokenU, 0, new Uint32Array([Sx, 0, 0, 0]));
+    device.queue.writeBuffer(prefillTokenU, 0, new Uint32Array([Sx, past, 0, 0]));
     device.queue.writeBuffer(prefillEmbedU, 0, new Uint32Array([Sx, audioStart, An, 0]));
-    for (let L = 0; L < NL; L++) device.queue.writeBuffer(layers[L].prefillLayerU, 0, new Uint32Array([L, Sx, 0, 0]));
+    for (let L = 0; L < NL; L++) device.queue.writeBuffer(layers[L].prefillLayerU, 0, new Uint32Array([L, Sx, past, 0]));
     const state = new Uint32Array(16); state[2] = 0; state[3] = 0;
     device.queue.writeBuffer(st, 0, state);
 
@@ -348,6 +355,17 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     }
     return { token: got[0], position: got[1], done: got[2], logits, debug: dbg };
   }
+  // Drops cached positions [to, from): rows from..from+count move down to `to` with K re-rotated (kvShiftWGSL).
+  function shiftKV(from: number, to: number, count: number) {
+    if (!(Number.isInteger(from) && Number.isInteger(to) && Number.isInteger(count)) || to < 0 || to >= from || count < 0 || from + count > LMAX) throw new RangeError(`shiftKV: invalid from=${from} to=${to} count=${count}`);
+    if (count === 0) return;
+    device.queue.writeBuffer(shiftU, 0, new Uint32Array([from, to, count, 0]));
+    const enc = device.createCommandEncoder();
+    const pass = enc.beginComputePass();
+    go(pass, P.kvShift, shiftBG, NL * 8);
+    pass.end();
+    device.queue.submit([enc.finish()]);
+  }
   function start(tok0: number, pos: number, cap: number) {
     const s = new Uint32Array(16); s[0] = tok0; s[1] = pos; s[2] = 0; s[3] = 0; s[4] = cap;
     device.queue.writeBuffer(st, 0, s);
@@ -396,7 +414,7 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
   const bindError = (await Promise.all(bindChecks)).find(Boolean);
   bindChecks = null;
   if (bindError) throw new Error(`engine bind group invalid: ${bindError}`);
-  return { config: C, LMAX, encodeSteps, setPrefill, prefill, start, decode, read, bufs: { st, h, qkv, qo, ao, act, logits, part, kc, vc, prefillH, prefillNorm, prefillQKV, prefillQ, prefillA, prefillAct }, pump, get dispatches() { return dispatches; } };
+  return { config: C, LMAX, encodeSteps, setPrefill, prefill, shiftKV, start, decode, read, bufs: { st, h, qkv, qo, ao, act, logits, part, kc, vc, prefillH, prefillNorm, prefillQKV, prefillQ, prefillA, prefillAct }, pump, get dispatches() { return dispatches; } };
 }
 
 // Streams `url` once and hands every 4-byte-aligned piece of each segment to `write(seg, offsetInSeg, bytes)`.

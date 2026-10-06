@@ -285,6 +285,7 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) d
 
 // QK-norm, RoPE, and KV append for every token. Each workgroup is one
 // (token, q/k/v head), so all positions can be dispatched in one batch.
+// Row `token` sits at position u.a + token: u.a cached positions precede it.
 export function ropePrefillWGSL({ LMAX, theta }: { LMAX: number; theta: number }): string {
   const inv = Array.from({ length: 64 }, (_, i) => Math.fround(Math.pow(theta, -(2 * i) / 128)));
   return head + `
@@ -309,7 +310,7 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) d
     for (var s = 64u; s > 0u; s >>= 1u) { if (d < s) { red[d] += red[d + s]; } workgroupBarrier(); }
     let w = select(f16lo(kn[d >> 1u], d & 1u), f16lo(qn[d >> 1u], d & 1u), hd < 16u);
     xo[d] = ${q("v * inverseSqrt(red[0] / 128.0 + 1e-6) * w")}; workgroupBarrier();
-    let ang = f32(token) * INVF[d & 63u];
+    let ang = f32(u.a + token) * INVF[d & 63u];
     var rot = 0.0;
     if (d < 64u) { rot = -xo[d + 64u]; } else { rot = xo[d - 64u]; }
     outv = ${q("xo[d] * cos(ang) + rot * sin(ang)")};
@@ -319,7 +320,7 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) d
   if ((d & 1u) == 0u) {
     let pk = pack2x16float(vec2<f32>(xo[d], xo[d + 1u]));
     let kvh = select(hd - 24u, hd - 16u, hd < 24u);
-    let idx = ((u.layer * 8u + kvh) * ${LMAX}u + token) * 64u + (d >> 1u);
+    let idx = ((u.layer * 8u + kvh) * ${LMAX}u + u.a + token) * 64u + (d >> 1u);
     if (hd < 24u) { kc[idx] = pk; } else { vc[idx] = pk; }
   }
 }`;
@@ -372,7 +373,7 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
 }
 
 // Causal GQA attention for the whole prefill. KV rows are read from the
-// cache written by ropePrefillWGSL; token t only scores positions <= t.
+// cache written by ropePrefillWGSL; row t (position u.a + t) scores positions <= u.a + t.
 export function attnPrefillWGSL({ LMAX, scale }: { LMAX: number; scale: number }): string {
   return head + `
 @group(0) @binding(1) var<storage, read> q: array<f32>;
@@ -388,7 +389,7 @@ var<workgroup> acc: array<vec2<f32>, 256>;
 @compute @workgroup_size(256)
 fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) li: u32) {
   if (halted(li)) { return; }
-  let token = wg.y; let hq = wg.x; let T = token + 1u;
+  let token = wg.y; let hq = wg.x; let T = u.a + token + 1u;
   let base = (u.layer * 8u + hq / 2u) * ${LMAX}u * 64u;
   if (li < 128u) { qs[li] = q[token * 2048u + hq * 128u + li]; }
   workgroupBarrier();
@@ -470,6 +471,40 @@ fn main(@builtin(local_invocation_index) li: u32) {
     if (li < s) { let ov = bv[li + s]; let oi = bi[li + s]; if (ov > bv[li] || (ov == bv[li] && oi < bi[li])) { bv[li] = ov; bi[li] = oi; } }
     workgroupBarrier();
   }
-  if (li == 0u) { let tok = bi[0]; st[0] = tok; st[1] = u.tokens; st[2] = select(0u, 1u, ${eosExpr}); st[3] = 0u; }
+  if (li == 0u) { let tok = bi[0]; st[0] = tok; st[1] = u.pad0 + u.tokens; st[2] = select(0u, 1u, ${eosExpr}); st[3] = 0u; }
+}`;
+}
+
+// Drops a span of cached positions: rows [from, from + count) of every
+// layer's KV move down to `to`, and K is re-rotated by -(from - to)
+// positions (RoPE composes, R(p - d) = R(-d) R(p)); V carries no position.
+// One workgroup per (layer, kv head) walks the rows in ascending order, and
+// each thread owns the same words in every row, so the overlapping move
+// needs no scratch copy. K is stored as f16 pairs (dims 2w, 2w + 1) and
+// RoPE pairs dim j with j + 64, so thread w < 32 rotates words w and w + 32.
+export function kvShiftWGSL({ LMAX, theta }: { LMAX: number; theta: number }): string {
+  const inv = Array.from({ length: 64 }, (_, i) => Math.fround(Math.pow(theta, -(2 * i) / 128)));
+  return `
+@group(0) @binding(0) var<storage, read_write> kc: array<u32>;
+@group(0) @binding(1) var<storage, read_write> vc: array<u32>;
+struct U { srcRow: u32, dstRow: u32, count: u32, pad: u32 }
+@group(1) @binding(0) var<uniform> u: U;
+var<private> INVF: array<f32, 64> = array<f32, 64>(${inv.map((v) => v.toPrecision(9)).join(", ")});
+@compute @workgroup_size(64)
+fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) w: u32) {
+  let slab = wg.x * ${LMAX}u * 64u;
+  let delta = f32(u.srcRow - u.dstRow);
+  let j = 2u * (w & 31u);
+  let a = vec2<f32>(-delta * INVF[j], -delta * INVF[j + 1u]);
+  let c = cos(a); let sn = sin(a);
+  for (var i = 0u; i < u.count; i++) {
+    let s = slab + (u.srcRow + i) * 64u; let d = slab + (u.dstRow + i) * 64u;
+    vc[d + w] = vc[s + w];
+    if (w < 32u) {
+      let lo = unpack2x16float(kc[s + w]); let hi = unpack2x16float(kc[s + w + 32u]);
+      kc[d + w] = pack2x16float(lo * c - hi * sn);
+      kc[d + w + 32u] = pack2x16float(hi * c + lo * sn);
+    }
+  }
 }`;
 }

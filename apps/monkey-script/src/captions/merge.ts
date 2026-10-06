@@ -52,7 +52,8 @@ export function mergeTranscript(prev: string, next: string, tailChars = 60, head
 // `st` = { open: Float32Array, closed: [{ pcm, af, mark }], tokens, histIds }.
 // A block that closes records how many tokens the text had then (minus
 // the rollback); when the block falls out of the kept range those
-// tokens leave the forced prefix and become history.
+// tokens leave the forced prefix and are returned; the caller decides
+// when they enter histIds.
 // `af` holds the block's encoder output once computed (the worker keeps it
 // on the GPU); closeBlocks never reads it.
 export interface ClosedBlock<F = unknown> {
@@ -70,7 +71,7 @@ export interface BlockState<F = unknown> {
 // tokens, so a slide is pulled back to the last token boundary that
 // ends a whole character: the slid text and the text left behind both
 // decode without U+FFFD halves.
-export function closeBlocks<F>(st: BlockState<F>, block: number, keep: number, rollback: number, histKeep: number, bytesOf: (ids: readonly number[]) => Uint8Array): number[] {
+export function closeBlocks<F>(st: BlockState<F>, block: number, keep: number, rollback: number, bytesOf: (ids: readonly number[]) => Uint8Array): number[] {
     const slid: number[] = [];
     while (st.open.length >= block) {
         st.closed.push({ pcm: st.open.slice(0, block), af: null, mark: Math.max(0, st.tokens.length - rollback) });
@@ -82,7 +83,6 @@ export function closeBlocks<F>(st: BlockState<F>, block: number, keep: number, r
             for (const b of st.closed) b.mark = Math.max(0, b.mark - n);
         }
     }
-    if (slid.length) st.histIds = [...st.histIds, ...slid].slice(-histKeep);
     return slid;
 }
 // Largest n' <= n such that tokens[0, n') decodes to whole characters.

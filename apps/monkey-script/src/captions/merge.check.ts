@@ -7,7 +7,7 @@ const pieces: Record<number, number[]> = { 1: [0xeb, 0x93], 2: [0xa0, 0xeb], 3: 
 const bytesOf = (ids: readonly number[]) => Uint8Array.from(ids.flatMap((t) => pieces[t]));
 const dec = (ids: readonly number[]) => new TextDecoder("utf-8", { fatal: true }).decode(bytesOf(ids));
 const st = { open: new Float32Array(2), closed: [{ pcm: new Float32Array(1), af: null, mark: 3 }], tokens: [5, 1, 2, 3, 4, 6, 7, 8, 9], histIds: [] as number[] };
-const slid = closeBlocks(st, 2, 1, 5, 24, bytesOf);
+const slid = closeBlocks(st, 2, 1, 5, bytesOf);
 dec(slid);
 dec(st.tokens);
 if (slid.join() !== "5") throw new Error(`slid [${slid.join()}], want [5]: the cut must fall back to the last whole character`);
