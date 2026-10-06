@@ -30,6 +30,11 @@ async function run() {
   const { P, ids, audioAt, A, T, H, maxNew, tokens: ortTokens } = ref;
   const adapter = await navigator.gpu.requestAdapter();
   if (!adapter) throw new Error("no WebGPU adapter");
+  // A software adapter (SwiftShader, lavapipe) runs the model on the CPU: minutes per load,
+  // every core pegged, and timings that say nothing about the GPU path. Refuse it outright.
+  const gpuId = `${adapter.info.vendor} ${adapter.info.architecture} ${adapter.info.device} ${adapter.info.description}`;
+  if (adapter.info.isFallbackAdapter || /swiftshader|llvmpipe|lavapipe|software/i.test(gpuId))
+    throw new Error(`software WebGPU adapter (${gpuId.trim()}); run on the Windows Chrome GPU over CDP 9333`);
   const report = { stage, adapter: `${adapter.info.vendor} ${adapter.info.architecture}`.trim(), shaderF16: adapter.features.has("shader-f16") };
   const device = await adapter.requestDevice({
     requiredLimits: { maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize, maxBufferSize: adapter.limits.maxBufferSize },

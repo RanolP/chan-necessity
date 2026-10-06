@@ -83,7 +83,7 @@ async function main() {
   try {
     // ASR_PARITY_STAGE=encoder|decoder runs one stage alone (see asr-parity.browser.mjs).
     const stage = process.env.ASR_PARITY_STAGE;
-    await ab(...(reused ? [] : ["--args", "--enable-unsafe-webgpu,--enable-unsafe-swiftshader"]), "open", stage ? `${origin}?stage=${stage}` : origin);
+    await ab(...(reused ? [] : ["--args", "--enable-unsafe-webgpu"]), "open", stage ? `${origin}?stage=${stage}` : origin);
     let result, printed = 0;
     for (;;) {
       result = JSON.parse(JSON.parse(await ab("eval", "JSON.stringify({ ...(window.__parity ?? { done: false }), log: window.__parityLog ?? [] })")));

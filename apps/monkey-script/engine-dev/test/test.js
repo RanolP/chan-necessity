@@ -12,6 +12,12 @@ try {
   const modes = (qs.get("modes") || "l0,full").split(",");
   const EXPECTED = "현재 시간은 2020년 1월 22일 오후 12시 26분 22초입니다.";
   const ad = await navigator.gpu.requestAdapter();
+  const adapter = ad;
+  // A software adapter (SwiftShader, lavapipe) runs the model on the CPU: minutes per load,
+  // every core pegged, and timings that say nothing about the GPU path. Refuse it outright.
+  const gpuId = `${adapter.info.vendor} ${adapter.info.architecture} ${adapter.info.device} ${adapter.info.description}`;
+  if (adapter.info.isFallbackAdapter || /swiftshader|llvmpipe|lavapipe|software/i.test(gpuId))
+    throw new Error(`software WebGPU adapter (${gpuId.trim()}); run on the Windows Chrome GPU over CDP 9333`);
   const device = await ad.requestDevice();
   device.lost.then((i) => { R.lost = { reason: i.reason, message: i.message }; R.phase = "error"; log({ lost: R.lost }); });
   device.onuncapturederror = (e) => { (R.gpuErrors ||= []).push(String(e.error.message).slice(0, 500)); };
