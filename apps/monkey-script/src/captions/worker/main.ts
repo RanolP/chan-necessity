@@ -81,6 +81,7 @@ interface Pipes {
 interface PatchMarks {
     cbWidePatched?: boolean;
     cbKernPatched?: boolean;
+    cbConcatPatched?: boolean;
     cbPatched?: boolean;
     cbPumped?: boolean;
 }
@@ -92,6 +93,7 @@ declare global {
     var __fft: ((re: Float64Array, im: Float64Array, n: number) => void) | undefined;
     var __wideHits: number | undefined;
     var __kernHits: Record<string, number> | undefined;
+    var __concatHits: number | undefined;
 }
 type OnBytes = (n: number, cached: boolean) => void;
 interface VadState {
@@ -558,6 +560,30 @@ function patchFirefoxKernels() {
     patched.cbKernPatched = true;
     P.createShaderModule = patched;
 }
+// Firefox on macOS (naga -> MSL) gives each alias of the same type its own name, so ORT's Concat
+// shader, which passes an input_N_indices_t to set_output_by_indices(output_indices_t), fails in
+// Metal ("no known conversion from 'input_0_indices_t' to 'output_indices_t'") and decoder_init
+// throws. When every alias is the same type as output_indices_t, naming them all output_indices_t
+// changes nothing and the call type-checks.
+function patchConcatIndexAlias() {
+    const P = GPUDevice.prototype;
+    if ((P.createShaderModule as Marked<GPUDevice["createShaderModule"]>).cbConcatPatched) return;
+    const create = P.createShaderModule;
+    const patched = function (this: GPUDevice, desc: GPUShaderModuleDescriptor) {
+        const c = desc?.code;
+        if (c && c.includes("fn calculate_input_index(") && c.includes("fn set_output_by_indices(indices: output_indices_t")) {
+            const out = /^alias output_indices_t = (.+);$/m.exec(c)?.[1];
+            const ins = [...c.matchAll(/^alias input_\d+_indices_t = (.+);\n/gm)];
+            if (out && ins.length && ins.every((m) => m[1] === out)) {
+                desc = { ...desc, code: c.replace(/^alias input_\d+_indices_t = .+;\n/gm, "").replace(/\binput_\d+_indices_t\b/g, "output_indices_t") };
+                self.__concatHits = (self.__concatHits || 0) + 1;
+            }
+        }
+        return create.call(this, desc);
+    };
+    patched.cbConcatPatched = true;
+    P.createShaderModule = patched;
+}
 async function patchF16Bitcast(adapter: GPUAdapter) {
     const device = await adapter.requestDevice({ requiredFeatures: ["shader-f16"] });
     const probe = device.createShaderModule({
@@ -673,6 +699,7 @@ async function load({ repo, rev, cacheName, engineAssets }: LoadMessage) {
     f16 = adapter.features.has("shader-f16");
     patchMatMulNBitsWide();
     patchFirefoxKernels();
+    patchConcatIndexAlias();
     if (f16) await patchF16Bitcast(adapter);
     await installMapPump();
     const base = `https://huggingface.co/${repo}/resolve/${rev}/`;
