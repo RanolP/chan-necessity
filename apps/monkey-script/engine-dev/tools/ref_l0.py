@@ -1,6 +1,6 @@
 # Layer-0 intermediates for the first engine step on the CPU fixture (tok0, pos S,
 # ORT-CPU prefill KV): qkv0 [4096] raw GEMV, h after layer 0 [2048]. Single-layer oracle.
-exec(open('tools/ref.py').read().split('if __name__')[0])
+exec(open('tools/ref.py').read())
 t = json.load(open(f"{E}/test/truth.json")); Sx = t["S"]; tok = t["tok0"]
 emb = np.fromfile(f"{E}/model/embed/embed_tokens.int8.bin", np.int8); esc = np.fromfile(f"{E}/model/embed/embed_scales.f32.bin", np.float32)
 e = (emb[tok*2048:(tok+1)*2048].astype(np.float32) * esc[tok]).astype(np.float16).astype(np.float32)

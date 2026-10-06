@@ -2,7 +2,7 @@
 # the WGSL kernels read). ref_l0.py builds its layer-0 oracle from it.
 # Catches: wrong nibble / zero-point order, wrong q|k|v or gate|up row split,
 # wrong rope form, wrong GQA head mapping.
-import json, os, sys
+import json, os
 import numpy as np
 
 S = os.environ["S"]; E = f"{S}/engine"

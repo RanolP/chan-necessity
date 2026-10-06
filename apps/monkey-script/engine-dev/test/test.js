@@ -27,8 +27,6 @@ try {
   const pk = new Uint8Array(await bin("prefill_k.f16")), pv = new Uint8Array(await bin("prefill_v.f16"));
   const reset = () => eng.setPrefill(pk, pv, truth.S);
   R.phase = "running";
-  const ref = { S: truth.S, tok0: truth.tok0, pk, pv, tokens: [...truth.tokens, truth.final], text: truth.text };
-  const resetRef = () => eng.setPrefill(ref.pk, ref.pv, ref.S);
   if (modes.includes("l0")) {
     reset(); eng.start(truth.tok0, truth.S, 1);
     const enc = device.createCommandEncoder(); eng.encodeSteps(enc, 1, 1); device.queue.submit([enc.finish()]);
@@ -51,15 +49,15 @@ try {
   }
   if (modes.includes("full")) {
     const V = 151936;
-    resetRef();
-    const r = await eng.decode(ref.tok0, ref.S, { cap: 64, perSubmit: 16 });
-    const ref2 = ref.tokens;
-    const got = [ref.tok0, ...r.tokens];
+    reset();
+    const r = await eng.decode(truth.tok0, truth.S, { cap: 64, perSubmit: 16 });
+    const ref2 = [...truth.tokens, truth.final];
+    const got = [truth.tok0, ...r.tokens];
     let div = -1; for (let i = 0; i < Math.max(got.length, ref2.length); i++) if (got[i] !== ref2[i]) { div = i; break; }
     R.full = { tokens: got, identical: div < 0, firstDivergence: div, timing: r.timing, done: r.done };
     if (div >= 0) {
       // margin at the divergent step: replay to it one step at a time and read the logits
-      resetRef(); eng.start(ref.tok0, ref.S, 64);
+      reset(); eng.start(truth.tok0, truth.S, 64);
       for (let s = 0; s < div; s++) { const enc = device.createCommandEncoder(); eng.encodeSteps(enc, 1); device.queue.submit([enc.finish()]); }
       const lg = new Float32Array(await eng.read(eng.bufs.logits, V * 4));
       R.full.divergentStepEngTop2 = top2(lg); R.full.oursAtDiv = got[div]; R.full.ortAtDiv = ref2[div];
@@ -71,7 +69,7 @@ try {
     const byteOf = new Map(cs.map((c, i) => [String.fromCodePoint(c), bs[i]]));
     const bytes = []; for (const t of got) if (t < 151643 && inv[t]) for (const ch of inv[t]) bytes.push(byteOf.get(ch) ?? 63);
     let text = new TextDecoder().decode(new Uint8Array(bytes)); const k = text.lastIndexOf("<asr_text>"); text = (k >= 0 ? text.slice(k + 10) : text).trim();
-    R.full.text = text; R.full.textEqualsRef = text === ref.text; R.full.textEqualsExpected = text === EXPECTED;
+    R.full.text = text; R.full.textEqualsRef = text === truth.text; R.full.textEqualsExpected = text === EXPECTED;
     log({ full: R.full });
   }
   if (modes.includes("time")) {
@@ -81,8 +79,8 @@ try {
     R.runs = [];
     const cfgs = JSON.parse(qs.get("pumps") || '[[0,false],[1,false],[0,true]]');
     for (const [iv, owd] of cfgs) for (let i = 0; i < 4; i++) {
-      eng.pump.interval = iv; resetRef(); await device.queue.onSubmittedWorkDone();
-      const r = await eng.decode(ref.tok0, ref.S, { cap: 64, perSubmit: 16, owd });
+      eng.pump.interval = iv; reset(); await device.queue.onSubmittedWorkDone();
+      const r = await eng.decode(truth.tok0, truth.S, { cap: 64, perSubmit: 16, owd });
       R.runs.push({ iv, owd, warm: i > 0, n: r.tokens.length, same: JSON.stringify(r.tokens) === JSON.stringify(R.full?.tokens?.slice(1)), ...r.timing });
     }
     log({ encodeBench: R.encodeBench, runs: R.runs });
