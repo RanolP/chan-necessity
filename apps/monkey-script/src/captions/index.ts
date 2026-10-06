@@ -1,6 +1,6 @@
 import { cbSplit, type SttHub } from "../shared/split-context.ts";
 import { cbAudio } from "../shared/audio.ts";
-import { normalizeWithMap, mergeTranscript, STRIP_RE } from "./merge.ts";
+import { mergeTranscript, commitPoint } from "./merge.ts";
 import WORKER_SOURCE from "virtual:captions-worker";
 import { loadEngineAssets } from "./assets.ts";
 import { createCaptionHistory } from "./history.ts";
@@ -753,6 +753,9 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
     // tokenBirth[i] remembers when token i (at that id) was first heard, so
     // the time to confirmation can be measured once it leaves the tail.
     let tokenBirth: { id: number; at: number; confirmed: boolean }[] = [];
+    // The worker's context ended (a final, or a hop sent with reset): its
+    // next text is new speech, so no carried tail applies to it.
+    let streamEnded = false;
     function showStream(res: StreamShown, lagS: number) {
         const now = performance.now();
         const fresh = state.textAt && now - state.textAt < CLEAR_AFTER_MS;
@@ -760,6 +763,11 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         if (!fresh && (res.decoded || res.final)) state.textEpoch++;
         if (res.hist) state.history = (state.history + " " + res.hist).trim().slice(-300);
         if (res.final) tokenBirth = [];
+        if (res.final) streamEnded = true;
+        else if (res.decoded && streamEnded) {
+            streamEnded = false;
+            lines.carry = "";
+        }
         if (res.decoded) {
             const heardAt = now - (lagS + res.newSec / 2) * 1000; // mid-hop
             const ids = res.ids!;
@@ -1080,6 +1088,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         (async () => {
             if (!quiet) for (const stage of preprocess) pcm = await stage(pcm, SR);
             const common = { id, pcm, lang: "ko", gapMs: gov.factor >= 2 ? 6 : 0, pace: state.config.pace === "raf" && !document.hidden, vad: state.config.vad, engine: state.config.engine };
+            if (stream && reset) streamEnded = true;
             if (stream) state.worker!.postMessage({ type: "stream", ...common, reset, quiet, maxTokens: Math.round(16 + 12 * job.newSec) }, [pcm.buffer]);
             else state.worker!.postMessage({ type: "run", ...common, newPcm, maxTokens: 96 }, [pcm.buffer]);
         })().catch((error) => {
@@ -1138,7 +1147,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
     // against the committed tail (afterCommitted) and only what follows it
     // is laid out, so a sliding decoder window never rewrites shown lines.
     const VISIBLE_LINES = 2;
-    const lines: { frozen: string[]; open: Word[]; key: string; layout: string; misses: number; dom: string; epoch: number; base: number; recorded: number } = { frozen: [], open: [], key: "", layout: "", misses: 0, dom: "", epoch: 0, base: 0, recorded: 0 };
+    const lines: { frozen: string[]; open: Word[]; key: string; layout: string; misses: number; dom: string; epoch: number; base: number; recorded: number; carry: string } = { frozen: [], open: [], key: "", layout: "", misses: 0, dom: "", epoch: 0, base: 0, recorded: 0, carry: "" };
     stats.lines = lines;
     // History records each line as it freezes. `recorded` counts the
     // leading open words already recorded (a reflow reopens the tail of a
@@ -1151,56 +1160,21 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         lines.recorded = Math.max(0, lines.recorded - words.length);
         captionLog.append(text, at ? at.media : (cbAudio.playerVideo()?.currentTime ?? null), at?.shiftSec ?? 0);
     }
+    // A seek (`at`) leaves nothing to align against; a stale gap keeps
+    // the committed tail in `carry` for commitPoint.
     function resetLines(at?: LineStamp) {
         // The confirmed part of the open line was the end of what was
         // shown; it never freezes, so it is recorded as it leaves.
-        recordLine(lines.open.filter((w) => !w.tent).map((w) => w.t), at);
+        const confirmed = lines.open.filter((w) => !w.tent).map((w) => w.t);
+        recordLine(confirmed, at);
+        const done = [...lines.frozen.slice(-6), ...confirmed].join(" ");
+        if (at) lines.carry = "";
+        else if (done) lines.carry = done;
         lines.recorded = 0;
         lines.frozen = [];
         lines.open = [];
         lines.key = "";
         lines.base = 0;
-    }
-    // <pure> Index in `hyp` right after the text that `committed` ends with,
-    // or -1 when the committed tail cannot be found. Matching runs on
-    // normalized characters (no spaces, punctuation or the U+FFFD of a
-    // half-decoded character). A run that reaches the committed end wins
-    // when it is at least 6 characters; otherwise the longest run wins,
-    // weighted toward the committed end, and committed characters after it
-    // are skipped one for one.
-    function afterCommitted(committed: string, hyp: string, tailChars = 80, minRun = 4) {
-        if (!committed) return 0;
-        const a = normalizeWithMap(committed.slice(-tailChars * 2));
-        const ac = a.chars.slice(-tailChars);
-        const nb = normalizeWithMap(hyp);
-        const keep = nb.chars.map((c, k) => (c === "\ufffd" ? -1 : k)).filter((k) => k >= 0);
-        const b = { chars: keep.map((k) => nb.chars[k]), map: keep.map((k) => nb.map[k]) };
-        let bestScore = -Infinity, bestLen = 0, bestAEnd = 0, bestBEnd = 0, endLen = 0, endBEnd = 0;
-        let row = new Array(b.chars.length + 1).fill(0);
-        for (let i = 0; i < ac.length; i++) {
-            const cur = new Array(b.chars.length + 1).fill(0);
-            for (let j = 0; j < b.chars.length; j++) {
-                if (ac[i] !== b.chars[j]) continue;
-                const len = (cur[j + 1] = row[j] + 1);
-                if (i === ac.length - 1 && len >= endLen) (endLen = len), (endBEnd = j + 1);
-                const score = 2 * len - (ac.length - (i + 1));
-                if (score >= bestScore) {
-                    bestScore = score;
-                    bestLen = len;
-                    bestAEnd = i + 1;
-                    bestBEnd = j + 1;
-                }
-            }
-            row = cur;
-        }
-        if (endLen >= Math.min(6, ac.length)) (bestLen = endLen), (bestAEnd = ac.length), (bestBEnd = endBEnd);
-        if (bestLen < Math.min(minRun, ac.length)) return -1;
-        const pn = Math.min(b.chars.length, bestBEnd + (ac.length - bestAEnd));
-        let p = pn > 0 ? b.map[pn - 1] + 1 : 0;
-        // Punctuation glued to the committed word stays with it (a frozen
-        // line cannot take it, and a line must not start with it).
-        while (p < hyp.length && !/\s/.test(hyp[p]) && STRIP_RE.test(hyp[p])) p++;
-        return p;
     }
     // Returns whether any line is shown.
     function composeLines(fresh: number | boolean) {
@@ -1235,9 +1209,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         const key = `${hyp}\u0000${layout}`;
         if (width > 0 && key !== lines.key) {
             lines.key = key;
-            const committed = lines.frozen.slice(-6).join(" ");
-            let p = afterCommitted(committed, hyp);
-            if (p < 0) p = afterCommitted(committed, hyp, 16, 3);
+            const p = commitPoint(lines.frozen, lines.carry, hyp);
             if (p < 0) lines.misses++;
             else {
                 const words: Word[] = [];

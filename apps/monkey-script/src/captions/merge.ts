@@ -46,6 +46,62 @@ export function mergeTranscript(prev: string, next: string, tailChars = 60, head
     if (best === b.chars.length) return prev;
     return (prev.slice(0, a.map[bestA]) + next.slice(b.map[bestB])).trim();
 }
+// Index in `hyp` right after the text that `committed` ends with,
+// or -1 when the committed tail cannot be found. Matching runs on
+// normalized characters (no spaces, punctuation or the U+FFFD of a
+// half-decoded character). A run that reaches the committed end wins
+// when it is at least 6 characters; otherwise the longest run wins,
+// weighted toward the committed end, and committed characters after it
+// are skipped one for one.
+export function afterCommitted(committed: string, hyp: string, tailChars = 80, minRun = 4) {
+    if (!committed) return 0;
+    const a = normalizeWithMap(committed.slice(-tailChars * 2));
+    const ac = a.chars.slice(-tailChars);
+    const nb = normalizeWithMap(hyp);
+    const keep = nb.chars.map((c, k) => (c === "\ufffd" ? -1 : k)).filter((k) => k >= 0);
+    const b = { chars: keep.map((k) => nb.chars[k]), map: keep.map((k) => nb.map[k]) };
+    let bestScore = -Infinity, bestLen = 0, bestAEnd = 0, bestBEnd = 0, endLen = 0, endBEnd = 0;
+    let row = new Array(b.chars.length + 1).fill(0);
+    for (let i = 0; i < ac.length; i++) {
+        const cur = new Array(b.chars.length + 1).fill(0);
+        for (let j = 0; j < b.chars.length; j++) {
+            if (ac[i] !== b.chars[j]) continue;
+            const len = (cur[j + 1] = row[j] + 1);
+            if (i === ac.length - 1 && len >= endLen) (endLen = len), (endBEnd = j + 1);
+            const score = 2 * len - (ac.length - (i + 1));
+            if (score >= bestScore) {
+                bestScore = score;
+                bestLen = len;
+                bestAEnd = i + 1;
+                bestBEnd = j + 1;
+            }
+        }
+        row = cur;
+    }
+    if (endLen >= Math.min(6, ac.length)) (bestLen = endLen), (bestAEnd = ac.length), (bestBEnd = endBEnd);
+    if (bestLen < Math.min(minRun, ac.length)) return -1;
+    const pn = Math.min(b.chars.length, bestBEnd + (ac.length - bestAEnd));
+    let p = pn > 0 ? b.map[pn - 1] + 1 : 0;
+    // Punctuation glued to the committed word stays with it (a frozen
+    // line cannot take it, and a line must not start with it).
+    while (p < hyp.length && !/\s/.test(hyp[p]) && STRIP_RE.test(hyp[p])) p++;
+    return p;
+}
+// Where the uncommitted part of `hyp` starts, or -1 to show nothing new.
+// `frozen` are the lines committed in this text epoch. `carry` is the
+// committed tail of the epoch a stale gap ended: the decoder may still
+// hold that audio (a slow hop past the page's clear timeout re-sends its
+// whole context, starting mid-word), so the new epoch is aligned against
+// it too. Against `carry` only a long run counts, and a miss means new
+// speech: everything is shown.
+export function commitPoint(frozen: readonly string[], carry: string, hyp: string): number {
+    if (frozen.length) {
+        const committed = frozen.slice(-6).join(" ");
+        const p = afterCommitted(committed, hyp);
+        return p >= 0 ? p : afterCommitted(committed, hyp, 16, 3);
+    }
+    return carry ? Math.max(0, afterCommitted(carry, hyp, 80, 6)) : 0;
+}
 // Streaming context bookkeeping. Each block is encoded on its own, so
 // its attention starts at the block's first frame, a closed block's features never
 // change and the oldest block can be cut off without touching the rest.
