@@ -66,20 +66,31 @@ export interface BlockState<F = unknown> {
     tokens: number[];
     histIds: number[];
 }
-export function closeBlocks<F>(st: BlockState<F>, block: number, keep: number, rollback: number, histKeep: number): number[] {
+// Byte-level BPE splits one Hangul syllable (3 UTF-8 bytes) across
+// tokens, so a slide is pulled back to the last token boundary that
+// ends a whole character: the slid text and the text left behind both
+// decode without U+FFFD halves.
+export function closeBlocks<F>(st: BlockState<F>, block: number, keep: number, rollback: number, histKeep: number, bytesOf: (ids: readonly number[]) => Uint8Array): number[] {
     const slid: number[] = [];
     while (st.open.length >= block) {
         st.closed.push({ pcm: st.open.slice(0, block), af: null, mark: Math.max(0, st.tokens.length - rollback) });
         st.open = st.open.slice(block);
         while (st.closed.length > keep) {
             const gone = st.closed.shift()!;
-            const n = Math.min(gone.mark, Math.max(0, st.tokens.length - rollback));
+            const n = charBoundary(st.tokens, Math.min(gone.mark, Math.max(0, st.tokens.length - rollback)), bytesOf);
             slid.push(...st.tokens.splice(0, n));
             for (const b of st.closed) b.mark = Math.max(0, b.mark - n);
         }
     }
     if (slid.length) st.histIds = [...st.histIds, ...slid].slice(-histKeep);
     return slid;
+}
+// Largest n' <= n such that tokens[0, n') decodes to whole characters.
+export function charBoundary(tokens: readonly number[], n: number, bytesOf: (ids: readonly number[]) => Uint8Array): number {
+    const all = bytesOf(tokens);
+    let at = bytesOf(tokens.slice(0, n)).length;
+    while (n > 0 && utf8Cut(all, at) !== at) at -= bytesOf([tokens[--n]]).length;
+    return n;
 }
 // Byte offset at or before `at` that starts a UTF-8 character.
 export function utf8Cut(bytes: Uint8Array, at: number): number {

@@ -480,7 +480,7 @@ const resetStream = () => {
 // closeBlocks drops the oldest closed blocks; their features go with them.
 const slide = () => {
     const before = st.closed.slice();
-    const slid = closeBlocks(st, BLOCK, 1, ROLLBACK, HIST_CONTEXT);
+    const slid = closeBlocks(st, BLOCK, 1, ROLLBACK, HIST_CONTEXT, bytesOf);
     freeBlocks(before.filter((b) => !st.closed.includes(b)));
     return slid;
 };
