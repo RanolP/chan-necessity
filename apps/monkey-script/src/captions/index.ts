@@ -677,7 +677,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             if (job) {
                 const took = performance.now() - job.sentAt!;
                 gov.busyMs += took;
-                gov.nextRunAt = performance.now() + took * gov.factor;
+                gov.nextRunAt = performance.now() + took * Math.max(0, gov.factor - 1);
             }
             if (!job || m.id !== state.runId) return;
             if (m.speech !== undefined && m.speechSec !== null) {
@@ -856,15 +856,16 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
 
     // ---- yielding to playback ---------------------------------------------
     // WebGPU has no priority between tabs or queues, so subtitles get only
-    // what playback leaves: the model waits at least as long as its last
-    // run took (≤50% occupancy), backs off further when frames drop, the
-    // frame clock stutters or the video buffer thins, and stops entirely
-    // while the video is paused. Loading is gated the same way. Latency is
+    // what playback leaves: at factor 1 the next run starts as soon as a
+    // result lands, since a paced run already yields frames as it goes;
+    // the wait grows to run time × (factor − 1) as the factor backs off
+    // when frames drop, the frame clock stutters or the video buffer
+    // thins, and runs stop entirely while the video is paused. Loading is gated the same way. Latency is
     // what this costs. A hidden tab keeps transcribing so the history holds
     // what was said meanwhile; it renders no frames, so only the buffer and
     // stall checks apply there.
     const gov = {
-        factor: 1, // wait after a run = run time × factor
+        factor: 1, // wait after a run = run time × (factor − 1)
         pauseUntil: 0,
         nextRunAt: 0,
         cleanSince: 0,
