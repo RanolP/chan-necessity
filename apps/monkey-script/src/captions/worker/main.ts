@@ -3,7 +3,7 @@
 // Everything runs on one WebGPU device the worker owns: the encoder's
 // output stays a GPU buffer that the decoder prefill reads directly, and
 // the only readbacks are the decoded token ids.
-import { closeBlocks, utf8Cut, repeatStop, type BlockState } from "../merge.ts";
+import { closeBlocks, utf8Cut, loopStop, trimLoop, LOOP_SPAN, type BlockState } from "../merge.ts";
 import { createEngine, makePump, type Engine } from "../engine/engine.ts";
 import { createEncoder, type Encoder, type EncoderResult } from "../engine/encoder.ts";
 import { logMel } from "../mel.ts";
@@ -375,8 +375,6 @@ async function decodeGreedy(ids: number[], audio: GPUBuffer, audioStart: number,
     }
     return { gen, prefillMs: tPre - t0, decodeMs: performance.now() - tPre };
 }
-const stopWindow = repeatStop(12);
-const stopStream = repeatStop(8);
 
 async function encode(pcm: Float32Array) {
     const mel = logMel(pcm, model!.filters);
@@ -397,7 +395,7 @@ async function transcribe(pcm: Float32Array, lang: string, maxTokens: number, pa
     await paced(pace, true);
     let r;
     try {
-        r = await decodeGreedy(ids, enc.buffer, P.prefix_ids.length, enc.frames, maxTokens, stopWindow, pace);
+        r = await decodeGreedy(ids, enc.buffer, P.prefix_ids.length, enc.frames, maxTokens, loopStop, pace);
     } finally {
         enc.buffer.destroy();
     }
@@ -572,9 +570,17 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
     }
     const A = parts.reduce((a, p) => a + p.frames, 0);
     const P = cfg.prompt;
-    const forced = st.tokens.slice(0, Math.max(0, st.tokens.length - ROLLBACK));
+    // The loop check runs on the text the user has seen + forced + new
+    // tokens, since a loop crosses hops and history rows; only forced and
+    // new tokens are ever cut. A loop is never fed back as forced text.
+    const seen = st.histIds;
+    const forced = trimLoop(seen, st.tokens.slice(0, Math.max(0, st.tokens.length - ROLLBACK)));
+    const lead = [...seen, ...forced].slice(-LOOP_SPAN);
+    const stopStream = (gen: readonly number[]) => loopStop([...lead, ...gen]);
     // History tail goes into the (otherwise empty) system turn.
-    const pre = [...P.prefix_ids.slice(0, 3), ...st.histIds.slice(-HIST_CONTEXT), ...P.prefix_ids.slice(3)];
+    // A history loop is cut to one copy in the prompt only: it never primes
+    // the decoder, and the history shown stays as it was.
+    const pre = [...P.prefix_ids.slice(0, 3), ...trimLoop([], st.histIds.slice(-HIST_CONTEXT)), ...P.prefix_ids.slice(3)];
     const audioAt = pre.length;
     const ids = [...pre, ...Array<number>(A).fill(P.audio_pad_id), ...P.suffix_ids, ...(cfg.language_prefix_ids[m.lang] || []), ...forced];
     await paced(m.pace, true);
@@ -591,7 +597,7 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
     const hist = slid.length ? textOf(slid) : "";
     const timing = { melEncMs: tPre - tMel, encMs, prefillMs: r.prefillMs, decodeMs: tEnd - tPre, totalMs: tEnd - t0, tokens: r.gen.length, prefill: ids.length, audioTokens: A, pace: m.pace ? { k: pacer.k, frameMs: +pacer.frameMs.toFixed(1), frames: pacer.frames } : null };
     const prevLen = st.tokens.length;
-    st.tokens = [...forced, ...r.gen];
+    st.tokens = trimLoop(seen, [...forced, ...r.gen]);
     const bytes = bytesOf(st.tokens);
     const cut = utf8Cut(bytes, bytesOf(st.tokens.slice(0, Math.max(0, st.tokens.length - ROLLBACK))).length);
     const dec = new TextDecoder();

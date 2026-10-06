@@ -99,24 +99,40 @@ export function utf8Cut(bytes: Uint8Array, at: number): number {
     return at;
 }
 
-// A digit run such as "2020202020..." loops with a period of one or two
-// tokens, far below the 8/12-token window check, and otherwise runs to
-// maxTokens; stop once a short period has repeated over 12 tokens.
-export function shortLoop(gen: readonly number[]): boolean {
-    const n = gen.length;
-    if (n < 12) return false;
-    for (let p = 1; p <= 4; p++) {
-        let ok = true;
-        for (let i = n - 12; i < n - p && ok; i++) ok = gen[i] === gen[i + p];
-        if (ok) return true;
+// A decoder stuck in a loop repeats one block of p tokens: "그그그…"
+// (p = 1), "2020…" (p = 2), a whole phrase (p ≈ 8-20). The streaming
+// decoder forces the previous hop's text and puts slid history in the
+// prompt, so a loop spans history, forced text and new tokens and is
+// only visible on the joined sequence.
+// Fires when the tail is one p-block repeated over max(LOOP_MIN, 2p)
+// tokens: 12 tokens for p <= 6 keeps the old short-period floor, so
+// speech that repeats a short word ("네 네", "맞아요 맞아요") never
+// fires; from p = 6 on it needs two whole copies of the phrase, the old
+// equal-halves rule extended to every period up to LOOP_MAX_PERIOD (24 ≈
+// one long Korean sentence). The smallest period that fires wins, so
+// collapsing keeps the shortest repeating unit.
+const LOOP_MIN = 12;
+const LOOP_MAX_PERIOD = 24;
+// Tokens a caller must keep in front of new tokens for loopStop to see a
+// loop that started before them.
+export const LOOP_SPAN = 2 * LOOP_MAX_PERIOD;
+// The trailing loop of `t`: its period and where the periodic run starts.
+export function trailingLoop(t: readonly number[]): { period: number; start: number } | null {
+    const n = t.length;
+    for (let p = 1; p <= LOOP_MAX_PERIOD && 2 * p <= n; p++) {
+        let s = n - p;
+        while (s > 0 && t[s - 1] === t[s - 1 + p]) s--;
+        if (n - s >= Math.max(LOOP_MIN, 2 * p)) return { period: p, start: s };
     }
-    return false;
+    return null;
 }
-
-// The two decode loops stop a decoder stuck repeating one phrase: the
-// whole-window path compares 12-token halves, the stream path 8-token ones.
-export const repeatStop = (half: number) => (gen: readonly number[]): boolean => {
-    if (shortLoop(gen)) return true;
-    if (gen.length < 2 * half) return false;
-    return gen.slice(-2 * half, -half).join(",") === gen.slice(-half).join(",");
-};
+export const loopStop = (gen: readonly number[]): boolean => trailingLoop(gen) !== null;
+// `fixed` + `t` with any trailing loop cut to one copy, returned as the
+// new `t`: `fixed` is text the user has already seen and is never cut.
+// When `fixed` already holds a whole copy, every looping token of `t`
+// goes.
+export function trimLoop(fixed: readonly number[], t: readonly number[]): number[] {
+    const loop = trailingLoop([...fixed, ...t]);
+    if (!loop) return t.slice();
+    return t.slice(0, Math.max(0, loop.start + loop.period - fixed.length));
+}
