@@ -1010,7 +1010,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
 
     // ---- UI --------------------------------------------------------------
     const STYLE = `
-        .cb-stt-overlay { position: absolute; left: 50%; transform: translateX(-50%); bottom: 64px; width: min(86%, 1100px); z-index: 30; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; text-align: center; transition: bottom .2s; }
+        .cb-stt-overlay { position: absolute; left: 50%; transform: translateX(-50%); bottom: 64px; width: min(86%, 1100px); z-index: 30; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; text-align: left; transition: bottom .2s; }
         .pzp-pc--controls .cb-stt-overlay { bottom: 96px; }
         .cb-stt-overlay[data-pos="top"], .pzp-pc--controls .cb-stt-overlay[data-pos="top"] { bottom: auto; top: 56px; justify-content: flex-start; }
         .cb-stt-overlay[hidden] { display: none; }
