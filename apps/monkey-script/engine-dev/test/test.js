@@ -11,23 +11,6 @@ const top2 = (a) => { let b = -1, c = -1; for (let i = 0; i < a.length; i++) { i
 try {
   const modes = (qs.get("modes") || "l0,full").split(",");
   const EXPECTED = "현재 시간은 2020년 1월 22일 오후 12시 26분 22초입니다.";
-  let ortRef = null;
-  if (qs.get("ref") === "ort") {
-    // ORT WebGPU reference (the decodeopt userscript worker): its prefill KV, first token, greedy tokens, per-step top-2.
-    R.phase = "ort";
-    const w = new Worker("ort-worker.js?pump=1&t=" + Date.now(), { type: "module" });
-    let tick = true; const raf = () => { if (!tick) return; w.postMessage({ type: "tick" }); requestAnimationFrame(raf); }; requestAnimationFrame(raf);
-    const ask = (msg, want) => new Promise((res, rej) => { w.onmessage = (e) => { const m = e.data; if (m.type === "progress") { R.progress = [m.loaded, m.total]; return; } if (m.type === "error") rej(new Error(JSON.stringify(m).slice(0, 800))); else if (m.type === want) res(m); }; w.postMessage(msg); });
-    const ld = await ask({ type: "load", repo: "jiangzhuo9357/Qwen3-ASR-1.7B-ONNX", rev: "fcc238dfdc95cdcccaa9a7e2c7f5abc2f94f44a7", cacheName: "engine-ref" }, "ready");
-    const pcm = await bin("clip.f32");
-    const runs = [];
-    for (let i = 0; i < Number(qs.get("ortRuns") || 1); i++) runs.push(await ask({ type: "capture", pcm: pcm.slice(0) }, "capture"));
-    tick = false; w.terminate();
-    const c = runs[0];
-    ortRef = { S: c.S, tok0: c.tok0, pk: c.pk, pv: c.pv, tokens: [...c.gen, c.final], text: c.text, top2: c.top2, kvDims: c.kvDims };
-    R.ort = { f16: ld.f16, S: c.S, tok0: c.tok0, kvDims: c.kvDims, tokens: ortRef.tokens, text: c.text, textOk: c.text === EXPECTED, timing: runs.map((r) => r.timing), runsAgree: runs.every((r) => JSON.stringify([...r.gen, r.final]) === JSON.stringify(ortRef.tokens)) };
-    log({ ort: R.ort });
-  }
   const ad = await navigator.gpu.requestAdapter();
   const device = await ad.requestDevice();
   device.lost.then((i) => { R.lost = { reason: i.reason, message: i.message }; R.phase = "error"; log({ lost: R.lost }); });
@@ -44,7 +27,7 @@ try {
   const pk = new Uint8Array(await bin("prefill_k.f16")), pv = new Uint8Array(await bin("prefill_v.f16"));
   const reset = () => eng.setPrefill(pk, pv, truth.S);
   R.phase = "running";
-  const ref = ortRef ? { ...ortRef, pk: ortRef.pk, pv: ortRef.pv } : { S: truth.S, tok0: truth.tok0, pk, pv, tokens: [...truth.tokens, truth.final], text: truth.text };
+  const ref = { S: truth.S, tok0: truth.tok0, pk, pv, tokens: [...truth.tokens, truth.final], text: truth.text };
   const resetRef = () => eng.setPrefill(ref.pk, ref.pv, ref.S);
   if (modes.includes("l0")) {
     reset(); eng.start(truth.tok0, truth.S, 1);
@@ -54,7 +37,7 @@ try {
     R.l0 = { qkv: maxDiff(qkv, ref.subarray(0, 4096)), attn: maxDiff(ao, ref.subarray(4096, 6144)), h: maxDiff(h, ref.subarray(6144, 8192)) };
     log({ l0: R.l0 });
   }
-  if (modes.includes("full") && !ortRef) {
+  if (modes.includes("full")) {
     // logits of the first 3 steps, one step per submit, against ORT CPU
     reset(); eng.start(truth.tok0, truth.S, 64);
     const ref = new Float32Array(await bin("logits3.f32")); const V = 151936; R.logits = [];
@@ -81,7 +64,6 @@ try {
       const lg = new Float32Array(await eng.read(eng.bufs.logits, V * 4));
       R.full.divergentStepEngTop2 = top2(lg); R.full.oursAtDiv = got[div]; R.full.ortAtDiv = ref2[div];
       R.full.ortTokLogitInEngine = lg[ref2[div]]; R.full.engTokLogitInEngine = lg[got[div]];
-      if (ref.top2) { const t = ref.top2[div - 1]; R.full.ortTop2AtDiv = t && { top: t[0], v: t[1], second: t[2], v2: t[3], margin: t[1] - t[3] }; }
     }
     const vocab = await (await fetch("../tools/refmodel/vocab.json")).json(); const inv = []; for (const [k, v] of Object.entries(vocab)) inv[v] = k;
     const bs = []; for (let i = 33; i < 127; i++) bs.push(i); for (let i = 161; i < 173; i++) bs.push(i); for (let i = 174; i < 256; i++) bs.push(i);

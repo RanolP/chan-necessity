@@ -1,8 +1,8 @@
 # Numpy reference of one decoder step built only from manifest.json (the layout
-# the WGSL kernels read), checked against ORT CPU running decoder_step.q4f16.onnx.
+# the WGSL kernels read). ref_l0.py builds its layer-0 oracle from it.
 # Catches: wrong nibble / zero-point order, wrong q|k|v or gate|up row split,
 # wrong rope form, wrong GQA head mapping.
-import json, os, sys, time
+import json, os, sys
 import numpy as np
 
 S = os.environ["S"]; E = f"{S}/engine"
@@ -56,27 +56,3 @@ def step(e, pos, pk, pv):
         gu = gemv(f"l{L}.gu", x, 2048); g, u = gu[:6144], gu[6144:]
         h = h + gemv(f"l{L}.down", u * (g / (1 + np.exp(-g))), 6144)
     return gemv("lm", rms(h, f16("norm")), 2048), nk, nv
-
-if __name__ == "__main__":
-    import onnxruntime as ort
-    rng = np.random.default_rng(0); P = 5; pos = P
-    emb = np.fromfile(f"{E}/embed_tokens.int8.bin", np.int8); esc = np.fromfile(f"{E}/embed_scales.f32.bin", np.float32)
-    tok = 151704
-    e = emb[tok * 2048:(tok + 1) * 2048].astype(np.float32) * esc[tok]
-    pk = (rng.standard_normal((28, 8, P, 128)) * 0.5).astype(np.float16)
-    pv = (rng.standard_normal((28, 8, P, 128)) * 0.5).astype(np.float16)
-    t0 = time.time()
-    lg, nk, nv = step(e.astype(np.float16).astype(np.float32), pos, pk.astype(np.float32), pv.astype(np.float32))
-    print("numpy step s", round(time.time() - t0, 1))
-    sess = ort.InferenceSession(f"{E}/tools/refmodel/decoder_step.q4f16.onnx", providers=["CPUExecutionProvider"])
-    o = sess.run(None, {"input_embeds": e.astype(np.float16)[None, None], "position_ids": np.array([[pos]], np.int64),
-                        "past_keys": pk[:, None], "past_values": pv[:, None]})
-    ol = o[0].reshape(-1).astype(np.float32)
-    print("logits maxabs diff", float(np.abs(ol - lg).max()), "max|logit|", float(np.abs(ol).max()),
-          "argmax ort/np", int(ol.argmax()), int(lg.argmax()))
-    print("new k maxdiff", float(np.abs(o[1][:, 0, :, P].astype(np.float32) - nk).max()),
-          "new v maxdiff", float(np.abs(o[2][:, 0, :, P].astype(np.float32) - nv).max()))
-    for L in (0, 1, 2, 13, 27):
-        dk = np.abs(o[1][L, 0, :, P].astype(np.float32) - nk[L]); dv = np.abs(o[2][L, 0, :, P].astype(np.float32) - nv[L])
-        print("layer", L, "k diff", float(dk.max()), "v diff", float(dv.max()), "|v|max", float(np.abs(nv[L]).max()))
-    rel = np.abs(ol - lg).max() / np.abs(ol).max(); print("logits rel", float(rel), "top5 ort", np.argsort(-ol)[:5], "np", np.argsort(-lg)[:5])
