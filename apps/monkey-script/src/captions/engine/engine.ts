@@ -54,6 +54,8 @@ export interface PrefillOptions {
   audioTokens?: number;
   /** Optional guard for callers that also know the prompt's audio-pad id. */
   audioPadId?: number;
+  /** Layers whose op boundaries are copied out into PrefillResult.debug (parity only; splits the pass). */
+  debug?: readonly number[];
 }
 export interface PrefillResult {
   /** Greedy first token, reduced on the GPU from the final prefill logits. */
@@ -64,6 +66,8 @@ export interface PrefillResult {
   done: number;
   /** GPU logits buffer for consumers that need the complete first-token row. */
   logits: GPUBuffer;
+  /** With PrefillOptions.debug: "embed" and "l{L}.{in,rms1,qkv,qrope,kcache,vcache,attn,resid1,rms2,act,resid2}" as [tokens, width] rows. */
+  debug?: Record<string, Float32Array>;
 }
 interface Segment {
   off: number;
@@ -147,7 +151,7 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
   const act = buf(I * 4, S | CS), logits = buf(V * 4, S | CS);
   const part = buf(NP * 8, S | CS);
   const kvBytes = NL * 8 * LMAX * 128 * 2;
-  const kc = buf(kvBytes), vc = buf(kvBytes);
+  const kc = buf(kvBytes, S | CD | CS), vc = buf(kvBytes, S | CD | CS);
   const prefillIds = buf(LMAX * 4);
   const prefillAudio = buf(LMAX * H * 4);
   const prefillH = buf(LMAX * H * 4, S | CS);
@@ -247,7 +251,7 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
       device.queue.writeBuffer(vc, dst, pv.buffer, pv.byteOffset + src, row);
     }
   }
-  async function prefill(ids: Int32Array | readonly number[], audioFeatures: GPUBuffer | Float32Array, { audioStart, audioTokens, audioPadId }: PrefillOptions): Promise<PrefillResult> {
+  async function prefill(ids: Int32Array | readonly number[], audioFeatures: GPUBuffer | Float32Array, { audioStart, audioTokens, audioPadId, debug }: PrefillOptions): Promise<PrefillResult> {
     const Sx = ids.length;
     if (!Number.isInteger(Sx) || Sx <= 0 || Sx > LMAX) throw new RangeError(`prefill: ids length ${Sx} is outside 1..${LMAX}`);
     if (!Number.isInteger(audioStart) || audioStart < 0) throw new RangeError(`prefill: invalid audioStart ${audioStart}`);
@@ -273,22 +277,45 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     device.queue.writeBuffer(st, 0, state);
 
     const enc = device.createCommandEncoder();
-    const pass = enc.beginComputePass();
+    let pass = enc.beginComputePass();
+    // Debug taps end the pass, copy one buffer region out and reopen the pass.
+    const taps: { name: string; m: GPUBuffer; kv: boolean }[] = [];
+    const tap = (name: string, src: GPUBuffer, bytes: number, off = 0, kv = false) => {
+      pass.end();
+      const m = device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | CD });
+      enc.copyBufferToBuffer(src, off, m, 0, bytes);
+      taps.push({ name, m, kv });
+      pass = enc.beginComputePass();
+    };
+    const tapped = new Set(debug ?? []);
+    const kvLayer = 8 * LMAX * 256;
     const embed = [
       bg(P.prefillEmbed, 0, [st, prefillIds, prefillH, ...emb, esc, audio]),
       bg(P.prefillEmbed, 1, [prefillEmbedU]),
     ];
     go(pass, P.prefillEmbed, embed, Sx * H / 256);
+    if (debug) tap("embed", prefillH, Sx * H * 4);
     for (let L = 0; L < NL; L++) {
       const l = layers[L];
+      const t = tapped.has(L) ? (name: string, src: GPUBuffer, width: number) => tap(`l${L}.${name}`, src, Sx * width * 4) : (_n: string, _s: GPUBuffer, _w: number) => {};
+      t("in", prefillH, H);
       go(pass, P.prefillRms, l.prefillRms1, Sx);
+      t("rms1", prefillNorm, H);
       go(pass, P.prefillQkv, l.prefillQkv, 4096 / 8, Sx);
+      t("qkv", prefillQKV, 4096);
       go(pass, P.prefillRope, l.prefillRope, 32, Sx);
+      t("qrope", prefillQ, 2048);
+      if (tapped.has(L)) { tap(`l${L}.kcache`, kc, kvLayer, L * kvLayer, true); tap(`l${L}.vcache`, vc, kvLayer, L * kvLayer, true); }
       go(pass, P.prefillAttn, l.prefillAttn, 16, Sx);
+      t("attn", prefillA, 2048);
       go(pass, P.prefillO, l.prefillO, H / 8, Sx);
+      t("resid1", prefillH, H);
       go(pass, P.prefillRms, l.prefillRms2, Sx);
+      t("rms2", prefillNorm, H);
       go(pass, P.prefillGu, l.prefillGu, I / 8, Sx);
+      t("act", prefillAct, I);
       go(pass, P.prefillDown, l.prefillDown, H / 8, Sx);
+      t("resid2", prefillH, H);
     }
     pass.end();
     enc.copyBufferToBuffer(prefillH, (Sx - 1) * H * 4, h, 0, H * 4);
@@ -299,7 +326,17 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     lm.end();
     device.queue.submit([enc.finish()]);
     const got = new Uint32Array(await read(st, 64));
-    return { token: got[0], position: got[1], done: got[2], logits };
+    let dbg: Record<string, Float32Array> | undefined;
+    if (debug) {
+      dbg = {};
+      for (const { name, m, kv } of taps) {
+        await pump(m.mapAsync(GPUMapMode.READ));
+        const raw = m.getMappedRange().slice(0); m.unmap(); m.destroy();
+        // KV cache [8, LMAX, 128] f16 -> [tokens, 8 * 128] f32
+        dbg[name] = kv ? kvRows(new Uint16Array(raw), Sx, LMAX) : new Float32Array(raw);
+      }
+    }
+    return { token: got[0], position: got[1], done: got[2], logits, debug: dbg };
   }
   function start(tok0: number, pos: number, cap: number) {
     const s = new Uint32Array(16); s[0] = tok0; s[1] = pos; s[2] = 0; s[3] = 0; s[4] = cap;
@@ -378,6 +415,15 @@ async function streamSegments<S extends Segment>(device: GPUDevice, get: Fetcher
   }
   rd.cancel().catch(() => {});
   if (si < segs.length) throw new Error(`${url}: stream ended at ${pos}, segment ${si}/${segs.length} unfinished`);
+}
+function kvRows(c: Uint16Array, Sx: number, LMAX: number) {
+  const r = new Float32Array(Sx * 1024);
+  for (let t = 0; t < Sx; t++) for (let k = 0; k < 8; k++) for (let d = 0; d < 128; d++) r[t * 1024 + k * 128 + d] = f16(c[(k * LMAX + t) * 128 + d]);
+  return r;
+}
+function f16(b: number) {
+  const e = (b >> 10) & 31, f = b & 1023, s = b & 0x8000 ? -1 : 1;
+  return e === 0 ? s * f * 2 ** -24 : e === 31 ? (f ? NaN : s * Infinity) : s * (1 + f / 1024) * 2 ** (e - 15);
 }
 function concat(a: Uint8Array, b: Uint8Array) { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; }
 

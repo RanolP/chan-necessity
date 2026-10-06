@@ -132,13 +132,19 @@ async function main() {
   // child would block the server until the navigation timed out.
   const ab = async (...args) => (await execFileAsync("agent-browser", ["--session", session, ...args], { encoding: "utf8" })).stdout.trim();
   try {
-    await ab(...(reused ? [] : ["--args", "--enable-unsafe-webgpu,--enable-unsafe-swiftshader"]), "open", origin);
-    let result;
+    // ASR_PARITY_STAGE=encoder|decoder runs one stage alone (see asr-parity.browser.mjs).
+    const stage = process.env.ASR_PARITY_STAGE;
+    await ab(...(reused ? [] : ["--args", "--enable-unsafe-webgpu,--enable-unsafe-swiftshader"]), "open", stage ? `${origin}?stage=${stage}` : origin);
+    let result, printed = 0;
     for (;;) {
-      result = JSON.parse(JSON.parse(await ab("eval", "JSON.stringify(window.__parity ?? { done: false })")));
+      result = JSON.parse(JSON.parse(await ab("eval", "JSON.stringify({ ...(window.__parity ?? { done: false }), log: window.__parityLog ?? [] })")));
+      // Stream the page's stage log so a lost device still leaves the last stage on stdout.
+      for (const line of result.log.slice(printed)) console.error(line);
+      printed = result.log.length;
       if (result.done) break;
       await new Promise((ok) => setTimeout(ok, 5000));
     }
+    delete result.log;
     console.log(JSON.stringify({ ...ref.report, ...result }));
     if (result.error) process.exitCode = 1;
   } finally {
