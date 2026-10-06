@@ -298,7 +298,7 @@ var<workgroup> xo: array<f32, 128>;
 @compute @workgroup_size(128)
 fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) d: u32) {
   if (halted(d)) { return; }
-  let token = wg.x / 32u; let hd = wg.x % 32u;
+  let token = wg.y; let hd = wg.x;
   let v = qkv[token * 4096u + hd * 128u + d]; var outv = v;
   if (hd < 24u) {
     red[d] = v * v; workgroupBarrier();
@@ -384,7 +384,7 @@ var<workgroup> acc: array<vec2<f32>, 256>;
 @compute @workgroup_size(256)
 fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) li: u32) {
   if (halted(li)) { return; }
-  let token = wg.x / 16u; let hq = wg.x % 16u; let T = token + 1u;
+  let token = wg.y; let hq = wg.x; let T = token + 1u;
   let base = (u.layer * 8u + hq / 2u) * ${LMAX}u * 64u;
   if (li < 128u) { qs[li] = q[token * 2048u + hq * 128u + li]; }
   workgroupBarrier();
