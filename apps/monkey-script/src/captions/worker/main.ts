@@ -76,16 +76,6 @@ let stage = "idle";
 type ErrorLike = { name?: string; message?: string; stack?: string } | null | undefined;
 const errFields = (error: unknown) => ({ stage, name: (error as ErrorLike)?.name ?? typeof error, message: (error as ErrorLike)?.message ?? String(error), stack: (error as ErrorLike)?.stack ?? "" });
 
-// The page closes the gate while playback needs the machine (thin
-// video buffer, a stall, a hidden tab); loading waits at the next
-// chunk or step boundary until it reopens.
-// Per column: a column whose playback suffers pauses only its own jobs.
-const gates = new Map<string | null, boolean>();
-let gateWaiters: (() => void)[] = [];
-const isOpen = () => gates.get(curCol) !== false;
-const gate = async () => {
-    while (!isOpen()) await new Promise<void>((r) => gateWaiters.push(r));
-};
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Frame pacing: GPU work goes out in slices, one slice per display
@@ -178,15 +168,11 @@ async function ensureCached(cache: Cache, url: string, onBytes: OnBytes, expect 
         }
     }
     await cache.delete(doneKey(url));
-    await gate();
     const res = await fetch(url);
     if (!res.ok) throw new Error(`${url} → HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
     let n = 0;
-    // Not pulling back-pressures the socket, so a closed gate also
-    // stops the download from competing with the stream.
     const count = new TransformStream<Uint8Array, Uint8Array>({
-        async transform(chunk, ctl) {
-            await gate();
+        transform(chunk, ctl) {
             n += chunk.byteLength;
             onBytes(chunk.byteLength, false);
             ctl.enqueue(chunk);
@@ -232,7 +218,6 @@ async function readCached(cache: Cache, url: string, onBytes: OnBytes, expect = 
 }
 async function fetchCached(cache: Cache, url: string, onBytes: OnBytes, expect = 0) {
     await ensureCached(cache, url, onBytes, expect);
-    await gate();
     return readCached(cache, url, onBytes, expect);
 }
 
@@ -301,10 +286,7 @@ async function load({ repo, rev, cacheName, engineAssets }: LoadMessage) {
     // Every download starts now; the GPU side is built once all are cached.
     const cached = files.map((f) => ensureCached(cache, base + f, onBytes, sizes[f]));
     for (const p of cached) p.catch(() => {});
-    const get = async (f: string) => {
-        await gate();
-        return readCached(cache, base + f, onBytes, sizes[f]);
-    };
+    const get = (f: string) => readCached(cache, base + f, onBytes, sizes[f]);
     stage = "load:VAD";
     await loadVad(cache);
     stage = "load:files";
@@ -318,11 +300,9 @@ async function load({ repo, rev, cacheName, engineAssets }: LoadMessage) {
     const vocab = (await json("vocab.json")) as Record<string, number>;
     const pump = makePump(gpu);
     stage = "load:encoder";
-    await gate();
     const encoder = await createEncoder(gpu, await get(ENCODER_FILE), { wait: pump });
     if (encoder.config.outputDim !== D) throw new Error(`encoder output ${encoder.config.outputDim} != decoder hidden ${D}`);
     stage = "load:engine";
-    await gate();
     const local: Record<string, ArrayBuffer> = { "engine:manifest.json": engineAssets.manifest, "engine:qknorm.bin": engineAssets.qknorm };
     // The engine reads the decoder weights and embeddings straight out
     // of the Cache Storage entries filled above.
@@ -377,8 +357,8 @@ async function prefillPaced(ids: number[], audio: GPUBuffer, audioStart: number,
     if (past === 0) kvOwner = null;
     stage = "prefill";
     // A whole prefill is ~600 ms of GPU work: as one submit it drops video
-    // frames, and the governor answers dropped frames with a 10 s pause.
-    // Paced, it runs a few layers per submit and the compositor gets the gaps.
+    // frames. Paced, it runs a few layers per submit and the compositor gets
+    // the gaps.
     const betweenLayers = pace ? prefillSliceDone : undefined;
     return eng.prefill(ids, audio, { audioStart, audioTokens, audioPadId: model!.cfg.prompt.audio_pad_id, betweenLayers, layersPerSlice: () => prefillPacer.k, past });
 }
@@ -414,7 +394,6 @@ async function transcribe(pcm: Float32Array, lang: string, maxTokens: number, pa
     pacer.inSlice = 0;
     const { cfg } = model!;
     const t0 = performance.now();
-    await gate();
     await paced(pace, true);
     const enc = await encode(pcm);
     const tEnc = performance.now();
@@ -575,7 +554,6 @@ async function rebuildAtPause(pace: boolean) {
     st.pendingHist = [];
     st.kv = null;
     const t0 = performance.now();
-    await gate();
     await encodeClosed(pace);
     const pre = prefixIds(st.histIds);
     const parts = st.closed.map((b) => b.af!);
@@ -663,7 +641,6 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
     st.quietSec = 0;
     const { slid, slides, shiftMs } = await slide();
     const { cfg } = model!;
-    await gate();
     const tMel = performance.now();
     let encMs = await encodeClosed(m.pace);
     let kv = m.exactKv ? null : cachedKv();
@@ -742,17 +719,10 @@ self.onmessage = (ev) => {
         for (const r of tickWaiters.splice(0)) r();
         return;
     }
-    if (m.type === "gate") {
-        gates.set(m.col ?? null, m.open);
-        for (const r of gateWaiters.splice(0)) r();
-        return;
-    }
     if (m.type === "drop") {
         const cx = cols.get(m.col ?? null);
         if (cx) freeBlocks(cx.st.closed);
         cols.delete(m.col ?? null);
-        gates.delete(m.col ?? null);
-        for (const r of gateWaiters.splice(0)) r();
         return;
     }
     queue = queue.then(async () => {

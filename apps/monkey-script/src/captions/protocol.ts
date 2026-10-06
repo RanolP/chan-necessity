@@ -10,11 +10,6 @@ export interface EngineAssets {
 export interface TickMessage {
     type: "tick";
 }
-export interface GateMessage {
-    type: "gate";
-    open: boolean;
-    col?: string | null;
-}
 export interface DropMessage {
     type: "drop";
     col: string | null;
@@ -33,7 +28,6 @@ interface JobCommon {
     id: number;
     pcm: Float32Array;
     lang: string;
-    gapMs: number;
     pace: boolean;
     vad: boolean;
     engine: boolean;
@@ -51,7 +45,7 @@ export interface RunMessage extends JobCommon {
     type: "run";
     newPcm: Float32Array | null;
 }
-export type PageMessage = TickMessage | GateMessage | DropMessage | LoadMessage | StreamMessage | RunMessage;
+export type PageMessage = TickMessage | DropMessage | LoadMessage | StreamMessage | RunMessage;
 
 export interface PaceStats {
     k: number;

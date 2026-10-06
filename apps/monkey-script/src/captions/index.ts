@@ -4,7 +4,6 @@ import { mergeTranscript, commitPoint } from "./merge.ts";
 import WORKER_SOURCE from "virtual:captions-worker";
 import { loadEngineAssets } from "./assets.ts";
 import { createCaptionHistory } from "./history.ts";
-import { backoff, mayRunAt, notePlaying, noteWaiting, rebase, stalled, step } from "./governor.ts";
 import { getLogger, KEY_LOG_LEVEL, toLogLevel } from "../shared/logtape.ts";
 import { registerPlayerButton } from "../shared/player-bar.ts";
 import { kstToMs, liveOpenDate, watchedWallTime } from "../shared/broadcast-time.ts";
@@ -45,7 +44,6 @@ interface MediaChunk {
 interface JobBase {
     newSec: number;
     sec: number;
-    sentAt?: number;
 }
 interface MediaJob extends JobBase {
     source: "media";
@@ -609,14 +607,12 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         aborted?: number;
         lines?: typeof lines;
     } = { stream: { hops: 0, decoded: 0, gated: 0, confirmS: [], hopMs: [], vadMs: [] }, vad: { speech: 0, nonspeech: 0, nonspeechEmitted: 0, speechEmitted: 0 }, windows: 0, silent: 0, skippedHops: 0, inferMs: [], latencyMs: [], rtf: [], e2eS: [], waitS: [], renderMs: [], readyMarginS: [], bySource: { media: 0, realtime: 0 }, load: null, log: [] };
-    pageWindow.ChzzkBestStt = { stats, state, media, preprocess, mergeTranscript, get gov() { return gov; } };
+    pageWindow.ChzzkBestStt = { stats, state, media, preprocess, mergeTranscript };
 
     function startWorker() {
         const name = modelName();
         if (state.worker && state.workerModel === name) return;
         if (!rafLast) requestAnimationFrame(rafLoop);
-        gov.busyMs = 0;
-        gov.since = performance.now();
         state.worker?.terminate();
         const hub = cbSplit.frame ? (cbSplit.hub() as SttHub<WorkerMessage, PageMessage> | null) : null;
         if (cbSplit.frame && !hub) return fail("split view: the top page has no subtitle hub");
@@ -631,7 +627,6 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             (worker as Worker).onmessage = (ev: MessageEvent<WorkerMessage>) => onWorker(ev.data, t0);
             (worker as Worker).onerror = (ev) => fail(`worker error: ${ev.message} (${ev.filename}:${ev.lineno}:${ev.colno})`);
         }
-        worker.postMessage({ type: "gate", open: gov.open });
         if (!hub) postLoad(worker, name);
         navigator.storage?.persist?.().catch(() => {});
     }
@@ -675,11 +670,6 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             state.inferFails = 0;
             const job = pending.get(m.id);
             pending.delete(m.id);
-            if (job) {
-                const took = performance.now() - job.sentAt!;
-                gov.busyMs += took;
-                gov.nextRunAt = performance.now() + took * Math.max(0, gov.factor - 1);
-            }
             if (!job || m.id !== state.runId) return;
             if (m.speech !== undefined && m.speechSec !== null) {
                 const emitted = m.stream ? !!m.grew : !!m.text;
@@ -839,11 +829,6 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         state.textAt = 0;
         state.textEpoch++;
         tokenBirth = [];
-        // The buffer-health baseline belongs to the old position: a rewind
-        // inside the buffer sees tens of seconds ahead, and the live edge
-        // after it would read as starved until the samples aged out.
-        gov.aheads.length = 0;
-        rebase(gov, performance.now());
         render();
     }
     document.addEventListener(
@@ -856,117 +841,18 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         true
     );
 
-    // ---- yielding to playback ---------------------------------------------
-    // WebGPU has no priority between tabs or queues, so subtitles get only
-    // what playback leaves: at factor 1 the next run starts as soon as a
-    // result lands, since a paced run already yields frames as it goes;
-    // the wait grows to run time × (factor − 1) as the factor backs off
-    // when frames drop, the frame clock stutters or the video buffer
-    // thins, and runs stop entirely while the video is paused. Loading is gated the same way. Latency is
-    // what this costs. A hidden tab keeps transcribing so the history holds
-    // what was said meanwhile; it renders no frames, so only the buffer and
-    // stall checks apply there.
-    const gov = {
-        ...backoff(),
-        open: true,
-        frames: [] as number[], // rAF intervals, ms
-        quality: [] as { t: number; dropped: number; total: number; inFlight: boolean }[], // { t, dropped, total, inFlight }
-        aheads: [] as number[], // buffered-ahead samples, s
-        baseDrop: 0, // drop rate while the model is idle
-        busyMs: 0,
-        since: performance.now(),
-        reasons: {} as Record<string, number>,
-    };
-    const quantile = (a: readonly number[], p: number) => {
-        const x = [...a].sort((m, n) => m - n);
-        return x.length ? x[Math.min(x.length - 1, Math.floor(x.length * p))] : 0;
-    };
+    // A worker without its own requestAnimationFrame paces GPU work on the
+    // page's frames: one tick per frame while a job runs.
     let rafLast = 0;
     const rafLoop = (t: number) => {
-        if (rafLast) gov.frames.push(t - rafLast);
         if (state.workerRaf === false && state.busy) state.worker?.postMessage({ type: "tick" });
-        if (gov.frames.length > 120) gov.frames.shift();
         rafLast = t;
         if (state.enabled) requestAnimationFrame(rafLoop);
         else rafLast = 0;
     };
-    function aheadOf(video: HTMLVideoElement) {
-        const b = video.buffered;
-        for (let i = 0; i < b.length; i++) if (b.start(i) <= video.currentTime + 0.1 && b.end(i) > video.currentTime) return b.end(i) - video.currentTime;
-        return 0;
-    }
-    function playbackVerdict() {
-        const video = cbAudio.playerVideo();
-        if (!video || video.paused) return "paused";
-        const now = performance.now();
-        if (stalled(gov, now)) return "stall";
-        const ahead = aheadOf(video);
-        gov.aheads.push(ahead);
-        if (gov.aheads.length > 60) gov.aheads.shift();
-        // Live edges keep only a few seconds ahead, so "thin" is relative
-        // to what this stream normally holds.
-        if (ahead < Math.min(10, 0.6 * quantile(gov.aheads, 0.5))) return "buffer";
-        // No frames render while hidden: drop and jank samples say nothing.
-        if (document.hidden) return "ok";
-        const q = video.getVideoPlaybackQuality?.();
-        if (q) {
-            gov.quality.push({ t: now, dropped: q.droppedVideoFrames, total: q.totalVideoFrames, inFlight: state.busy });
-            while (gov.quality.length && now - gov.quality[0].t > 2500) gov.quality.shift();
-            const a = gov.quality[0];
-            const frames = q.totalVideoFrames - a.total;
-            if (frames >= 20) {
-                const rate = (q.droppedVideoFrames - a.dropped) / frames;
-                if (!gov.quality.some((s) => s.inFlight)) gov.baseDrop += (rate - gov.baseDrop) * 0.2;
-                if (rate > gov.baseDrop + 0.05) {
-                    // Count a burst once: left in the window, every 500 ms
-                    // tick would double the factor again for the same
-                    // frames, and one hop would reach the 10 s pause.
-                    gov.quality.splice(0, gov.quality.length - 1);
-                    return "drops";
-                }
-            }
-        }
-        if (gov.frames.length >= 30 && quantile(gov.frames, 0.95) > 50) return "jank";
-        return "ok";
-    }
-    let governedAt = 0;
-    function govern() {
-        if (!state.enabled) return;
-        const verdict = playbackVerdict();
-        const now = performance.now();
-        governedAt = now;
-        const open = verdict === "ok";
-        if (verdict !== "ok") gov.reasons[verdict] = (gov.reasons[verdict] || 0) + 1;
-        if (open !== gov.open) {
-            gov.open = open;
-            state.worker?.postMessage({ type: "gate", open });
-        }
-        step(gov, verdict, now);
-    }
-    const mayRun = () => gov.open && performance.now() >= mayRunAt(gov);
-    // Only the player's own rebuffers count, and not the one a jump causes.
-    document.addEventListener(
-        "waiting",
-        (event) => {
-            const video = cbAudio.playerVideo();
-            if (video && event.target === video) noteWaiting(gov, performance.now(), video.seeking);
-        },
-        true
-    );
-    document.addEventListener(
-        "playing",
-        (event) => {
-            if (event.target === cbAudio.playerVideo()) notePlaying(gov, performance.now());
-        },
-        true
-    );
-    // A channel switch (SPA navigation) or a source reload restarts the
-    // player's buffer the same way a seek does.
-    cbAudio.onVideoChange(() => rebase(gov, performance.now()));
-    setInterval(govern, 500);
     // A hidden tab's timers slow to 1 Hz once it is silent and to about once
     // a minute after 5 minutes; a worker's timers keep their rate, so while
-    // hidden a worker clock drives scheduling and the governor.
+    // hidden a worker clock drives scheduling.
     let clock: Worker | null = null;
     function syncClock() {
         const want = document.hidden && state.enabled;
@@ -986,7 +872,6 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         }
         clock.onmessage = () => {
             syncClock();
-            if (performance.now() - governedAt >= 500) govern();
             schedule();
         };
     }
@@ -1005,7 +890,8 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             state.lastCt = video.currentTime;
         }
         showDue();
-        if (state.phase !== "ready" || state.busy || !mayRun()) return;
+        // A paused player would only feed the model silence.
+        if (state.phase !== "ready" || state.busy || video?.paused) return;
         const stream = state.config.decode === "stream";
         const hop = stream ? state.config.streamHopSec : state.config.minHopSec;
         let pcm: Float32Array<ArrayBuffer>;
@@ -1092,12 +978,11 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         for (let i = 0; i < pcm.length; i++) pcm[i] *= gain;
         if (!stream && job.newSec > 0) newPcm = pcm.slice(-Math.round(Math.min(job.newSec, job.sec) * SR));
         const id = ++state.runId;
-        job.sentAt = performance.now();
         pending.set(id, job);
         state.busy = true;
         (async () => {
             if (!quiet) for (const stage of preprocess) pcm = await stage(pcm, SR);
-            const common = { id, pcm, lang: "ko", gapMs: gov.factor >= 2 ? 6 : 0, pace: state.config.pace === "raf" && !document.hidden, vad: state.config.vad, engine: state.config.engine };
+            const common = { id, pcm, lang: "ko", pace: state.config.pace === "raf" && !document.hidden, vad: state.config.vad, engine: state.config.engine };
             if (stream && reset) streamEnded = true;
             if (stream) state.worker!.postMessage({ type: "stream", ...common, reset, quiet, maxTokens: Math.round(16 + 12 * job.newSec) }, [pcm.buffer]);
             else state.worker!.postMessage({ type: "run", ...common, newPcm, maxTokens: 96 }, [pcm.buffer]);
