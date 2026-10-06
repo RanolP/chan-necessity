@@ -111,10 +111,10 @@ interface Entry {
             font: 11px/1 sans-serif; color: #fff;
             font-variant-numeric: tabular-nums; text-shadow: 0 0 2px #000, 0 0 2px #000; }
         .cb-bm-panel, .cb-bm-tl {
-            transition: opacity .2s ease-in, visibility .2s ease-in; }
+            transition: opacity .2s ease-in; }
         .pzp-pc:not(.pzp-pc--controls) .cb-bm-panel,
         .pzp-pc:not(.pzp-pc--controls) .cb-bm-tl {
-            opacity: 0; visibility: hidden; pointer-events: none; }
+            opacity: 0; pointer-events: none; }
         .cb-bm-tl-track { position: relative; flex: 1; height: 4px; border-radius: 2px;
             background: rgba(255,255,255,.3); box-shadow: 0 0 0 1px rgba(0,0,0,.45); }
         .cb-bm-tl-fill { position: absolute; left: 0; top: 0; bottom: 0;
