@@ -26,15 +26,14 @@ export function embedWGSL(rowsPerPart: number): string {
 @group(0) @binding(2) var<storage, read> e0: array<u32>;
 @group(0) @binding(3) var<storage, read> e1: array<u32>;
 @group(0) @binding(4) var<storage, read> e2: array<u32>;
-@group(0) @binding(5) var<storage, read> e3: array<u32>;
-@group(0) @binding(6) var<storage, read> esc: array<f32>;
+@group(0) @binding(5) var<storage, read> esc: array<f32>;
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(local_invocation_index) li: u32) {
   if (halted(li)) { return; }
   let tok = st[0]; let part = tok / ${rowsPerPart}u; let row = tok % ${rowsPerPart}u;
   let d = gid.x; let wi = row * 512u + (d >> 2u);
   var w = 0u;
-  switch part { case 0u: { w = e0[wi]; } case 1u: { w = e1[wi]; } case 2u: { w = e2[wi]; } default: { w = e3[wi]; } }
+  switch part { case 0u: { w = e0[wi]; } case 1u: { w = e1[wi]; } default: { w = e2[wi]; } }
   let b = i32(w << (24u - 8u * (d & 3u))) >> 24u;
   // ORT receives input_embeds as f16: round the same way.
   h[d] = unpack2x16float(pack2x16float(vec2<f32>(f32(b) * esc[tok], 0.0))).x;
@@ -52,9 +51,8 @@ export function prefillEmbedWGSL({ rowsPerPart, hidden }: { rowsPerPart: number;
 @group(0) @binding(3) var<storage, read> e0: array<u32>;
 @group(0) @binding(4) var<storage, read> e1: array<u32>;
 @group(0) @binding(5) var<storage, read> e2: array<u32>;
-@group(0) @binding(6) var<storage, read> e3: array<u32>;
-@group(0) @binding(7) var<storage, read> esc: array<f32>;
-@group(0) @binding(8) var<storage, read> audio: array<f32>;
+@group(0) @binding(6) var<storage, read> esc: array<f32>;
+@group(0) @binding(7) var<storage, read> audio: array<f32>;
 struct U { tokens: u32, audioStart: u32, audioTokens: u32, pad: u32 }
 @group(1) @binding(0) var<uniform> u: U;
 @compute @workgroup_size(256)
@@ -70,7 +68,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(local_invocation
   let id = ids[token]; let part = id / ${rowsPerPart}u; let row = id % ${rowsPerPart}u;
   let wi = row * 512u + (d >> 2u);
   var w = 0u;
-  switch part { case 0u: { w = e0[wi]; } case 1u: { w = e1[wi]; } case 2u: { w = e2[wi]; } default: { w = e3[wi]; } }
+  switch part { case 0u: { w = e0[wi]; } case 1u: { w = e1[wi]; } default: { w = e2[wi]; } }
   let b = i32(w << (24u - 8u * (d & 3u))) >> 24u;
   h[token * ${hidden}u + d] = ${q(`f32(b) * esc[id]`)};
 }`;
@@ -89,6 +87,7 @@ var<workgroup> red: array<f32, 256>;
 @compute @workgroup_size(256)
 fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) li: u32) {
   if (halted(li)) { return; }
+  if (wg.x >= u.tokens) { return; }
   let token = wg.x;
   var ss = 0.0;
   for (var i = li; i < ${K}u; i += 256u) { let v = x[token * ${K}u + i]; ss += v * v; }

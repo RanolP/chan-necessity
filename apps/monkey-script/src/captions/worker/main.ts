@@ -47,6 +47,13 @@ const HIST_CONTEXT = 24;
 let device: GPUDevice | null = null;
 let model: Model | null = null;
 let engine: Engine | null = null;
+let gpuError: string | null = null;
+function failOnGpuError() {
+    if (gpuError === null) return;
+    const message = gpuError;
+    gpuError = null;
+    throw new Error(`WebGPU validation: ${message}`);
+}
 // One worker serves every split-view column: each request carries
 // the column id, the decode and VAD state live per column (cols),
 // and replies to a request go back tagged with its column.
@@ -222,11 +229,17 @@ async function load({ repo, rev, cacheName, engineAssets }: LoadMessage) {
         requiredLimits: {
             maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize,
             maxBufferSize: adapter.limits.maxBufferSize,
-            // The prefill embed kernel binds 9 storage buffers; the default is 8.
-            maxStorageBuffersPerShaderStage: adapter.limits.maxStorageBuffersPerShaderStage,
         },
     });
     device = gpu;
+    // A validation error never throws at the call site; it invalidates the
+    // command buffer, and the job would decode from zeroed buffers. The
+    // first one fails the job in flight (see failOnGpuError).
+    gpu.addEventListener("uncapturederror", (event) => {
+        const message = (event as GPUUncapturedErrorEvent).error.message;
+        logger.error("uncaptured WebGPU error {message}", { message });
+        gpuError ??= message;
+    });
     // A lost device ends the session: report it once and never
     // recreate the device or retry, since a driver reset loop
     // (TDR) is what a retry would feed.
@@ -603,7 +616,11 @@ self.onmessage = (ev) => {
             if (m.type === "load") {
                 configureLogging(toLogLevel(m.logLevel));
                 await load(m);
-            } else if (m.type === "stream") post({ type: "result", id: m.id, ...(await streamHop(m)) });
+            } else if (m.type === "stream") {
+                const result = await streamHop(m);
+                failOnGpuError();
+                post({ type: "result", id: m.id, ...result });
+            }
             else if (m.type === "run") {
                 // VAD over the window's new audio: labels the hop, and
                 // gates it unless m.vad is false.
@@ -611,7 +628,11 @@ self.onmessage = (ev) => {
                 const speech = v ? v.speechSec >= VAD_MIN_SPEECH_SEC : true;
                 const vadInfo = { speechSec: v?.speechSec ?? null, vadMs: v?.ms ?? null, speech };
                 if (!speech && m.vad !== false) post({ type: "result", id: m.id, ...vadInfo, skipped: "vad", text: "", totalMs: 0 });
-                else post({ type: "result", id: m.id, ...vadInfo, ...(await transcribe(m.pcm, m.lang, m.maxTokens, m.pace)) });
+                else {
+                    const result = await transcribe(m.pcm, m.lang, m.maxTokens, m.pace);
+                    failOnGpuError();
+                    post({ type: "result", id: m.id, ...vadInfo, ...result });
+                }
             }
         } catch (error) {
             post({ type: "error", id: m.id, ...errFields(error) });

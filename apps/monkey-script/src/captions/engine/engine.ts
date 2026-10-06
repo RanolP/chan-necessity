@@ -76,15 +76,18 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
   const man: Manifest = await (await get(manifestUrl)).json();
   const C = man.config;
   const H = C.hidden, I = C.intermediate, V = C.vocab, NL = C.layers;
-  const LM_HALF = V / 2, EMB_PARTS = 4, EMB_ROWS = V / EMB_PARTS;
+  // Three embedding parts keep prefill-embed at 8 storage buffers (the WebGPU
+  // default per stage) with each part under the 128 MiB binding cap; V is not
+  // a multiple of 3, so the last part holds fewer rows.
+  const LM_HALF = V / 2, EMB_PARTS = 3, EMB_ROWS = Math.ceil(V / EMB_PARTS);
   const S = GPUBufferUsage.STORAGE, CD = GPUBufferUsage.COPY_DST, CS = GPUBufferUsage.COPY_SRC;
   const buf = (size: number, usage = S | CD) => device.createBuffer({ size: Math.ceil(size / 4) * 4, usage });
 
   const NP = 2 * (LM_HALF / 8);
   // ---- pipelines
   const mk = async (name: string, code: string) => {
-    const module = device.createShaderModule({ code });
-    try { return await device.createComputePipelineAsync({ layout: "auto", compute: { module, entryPoint: "main" } }); }
+    const module = device.createShaderModule({ label: name, code });
+    try { return await device.createComputePipelineAsync({ label: name, layout: "auto", compute: { module, entryPoint: "main" } }); }
     catch (e) { const ci = await module.getCompilationInfo(); throw new Error(`pipeline ${name}: ${(e as Error).message}\n${ci.messages.map((m) => `${m.lineNum}:${m.linePos} ${m.message}`).join("\n")}`); }
   };
   const P = {
@@ -131,9 +134,9 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
   const prog = (n: number) => { loaded += n; onProgress(loaded, total); };
   for (const [src, segs] of Object.entries(bySrc)) await streamSegments(device, get, urls[src], segs, (s, sp, d) => { writeT(s.t, s.dst + sp, d); prog(d.length); });
 
-  // ---- embeddings: int8 rows in 4 buffers + per-row f32 scales
+  // ---- embeddings: int8 rows in EMB_PARTS buffers + per-row f32 scales
   const emb = Array.from({ length: EMB_PARTS }, () => buf(EMB_ROWS * H));
-  const embSegs = emb.map((b, i) => ({ off: i * EMB_ROWS * H, len: EMB_ROWS * H, dst: 0, b }));
+  const embSegs = emb.map((b, i) => ({ off: i * EMB_ROWS * H, len: (Math.min(V, (i + 1) * EMB_ROWS) - i * EMB_ROWS) * H, dst: 0, b }));
   await streamSegments(device, get, urls.embed, embSegs, (s, sp, d) => { device.queue.writeBuffer(s.b, sp, d); prog(d.length); });
   const escData = new Uint8Array(await (await get(urls.embedScales)).arrayBuffer());
   const esc = buf(escData.length); device.queue.writeBuffer(esc, 0, escData);
@@ -154,7 +157,17 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
   const prefillA = buf(LMAX * 2048 * 4, S | CS);
   const prefillAct = buf(LMAX * I * 4, S | CS);
 
-  const bg = (p: GPUComputePipeline, group: number, bufs: (GPUBuffer | null)[]) => device.createBindGroup({ layout: p.getBindGroupLayout(group), entries: bufs.map((b, i) => (b == null ? null : { binding: i, resource: { buffer: b } })).filter((e): e is NonNullable<typeof e> => Boolean(e)) });
+  // An invalid bind group does not throw: it only invalidates every command
+  // buffer that uses it, and the kernels then read zeroed buffers. Init-time
+  // bind groups are checked one scope each and fail createEngine by name;
+  // later ones surface through the worker's uncapturederror handler.
+  let bindChecks: Promise<string | null>[] | null = [];
+  const bg = (p: GPUComputePipeline, group: number, bufs: (GPUBuffer | null)[]) => {
+    if (bindChecks) device.pushErrorScope("validation");
+    const g = device.createBindGroup({ label: `${p.label} group ${group}`, layout: p.getBindGroupLayout(group), entries: bufs.map((b, i) => (b == null ? null : { binding: i, resource: { buffer: b } })).filter((e): e is NonNullable<typeof e> => Boolean(e)) });
+    if (bindChecks) bindChecks.push(device.popErrorScope().then((e) => e && `${p.label} group ${group}: ${e.message}`));
+    return g;
+  };
   const t1 = (n: string, k = 0) => T[n].parts[k].buf;
   const uni = (vals: number[]) => { const b = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | CD }); device.queue.writeBuffer(b, 0, new Uint32Array([...vals, 0, 0, 0, 0].slice(0, 4))); return b; };
   const prefillTokenU = uni([0]);
@@ -333,6 +346,9 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     return { tokens: Array.from(all.subarray(16, 16 + all[3])), done: all[2], eosStep: all[2] === 1 ? all[5] : -1, timing: t };
   }
 
+  const bindError = (await Promise.all(bindChecks)).find(Boolean);
+  bindChecks = null;
+  if (bindError) throw new Error(`engine bind group invalid: ${bindError}`);
   return { config: C, LMAX, encodeSteps, setPrefill, prefill, start, decode, read, bufs: { st, h, qkv, qo, ao, act, logits, part, kc, vc, prefillH, prefillNorm, prefillQKV, prefillQ, prefillA, prefillAct }, pump, get dispatches() { return dispatches; } };
 }
 
