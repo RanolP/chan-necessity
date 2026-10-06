@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const src = fileURLToPath(new URL("../../monkey-script/dist/chan-necessity.user.js", import.meta.url));
 const dir = fileURLToPath(new URL("../public/", import.meta.url));
 if (!existsSync(src)) {
-    console.error(`${src} is missing; build apps/monkey-script first (the root "yarn build" does both in order).`);
+    console.error(`${src} is missing; build apps/monkey-script first (the root "pnpm build" does both in order).`);
     process.exit(1);
 }
 mkdirSync(dir, { recursive: true });

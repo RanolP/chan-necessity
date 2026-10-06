@@ -9,7 +9,7 @@
 // path, so the engine reads them from there.
 //
 // Needs the GitHub CLI logged in with write access to RanolP/chan-necessity.
-// Run: yarn upload-models   (re-running replaces the assets in place)
+// Run: pnpm upload-models   (re-running replaces the assets in place)
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";

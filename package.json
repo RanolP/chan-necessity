@@ -2,12 +2,9 @@
   "name": "chan-necessity-workspace",
   "private": true,
   "license": "Apache-2.0",
-  "packageManager": "yarn@1.22.22",
-  "workspaces": [
-    "apps/*"
-  ],
+  "packageManager": "pnpm@12.9.1",
   "scripts": {
-    "build": "yarn workspace @chan-necessity/monkey-script build && yarn workspace @chan-necessity/website build",
-    "upload-models": "yarn workspace @chan-necessity/monkey-script upload-models"
+    "build": "pnpm --filter @chan-necessity/monkey-script build && pnpm --filter @chan-necessity/website build",
+    "upload-models": "pnpm --filter @chan-necessity/monkey-script upload-models"
   }
 }

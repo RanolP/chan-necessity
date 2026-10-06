@@ -14,15 +14,15 @@ Every module logs through LogTape under the category `chan-necessity·<module>`,
 ## Build
 
 ```sh
-corepack yarn install
-corepack yarn build
+pnpm install
+pnpm build
 ```
 
-Node comes from `mise.toml`, Yarn 1 from the `packageManager` field.
+Node and pnpm come from `mise.toml`; the `packageManager` field pins the same pnpm version.
 
 ## Subtitle model assets
 
-The subtitles run Qwen3-ASR (`jiangzhuo9357/Qwen3-ASR-1.7B-ONNX` or the 0.6B export) with onnxruntime-web on WebGPU. With the 1.7B model on a device with `shader-f16`, token decoding runs in a dedicated WebGPU engine (`src/captions/engine/`) instead of the ORT decode loop. The engine reads the decoder weights and embeddings from the same Hugging Face files the ORT path caches, and needs only two extra files, `manifest.json` and `qknorm.bin`, which are published to the `models-v1` GitHub release by `corepack yarn upload-models`. If they cannot be fetched, the subtitles keep working on the ORT path.
+The subtitles run Qwen3-ASR (`jiangzhuo9357/Qwen3-ASR-1.7B-ONNX` or the 0.6B export) with onnxruntime-web on WebGPU. With the 1.7B model on a device with `shader-f16`, token decoding runs in a dedicated WebGPU engine (`src/captions/engine/`) instead of the ORT decode loop. The engine reads the decoder weights and embeddings from the same Hugging Face files the ORT path caches, and needs only two extra files, `manifest.json` and `qknorm.bin`, which are published to the `models-v1` GitHub release by `pnpm upload-models`. If they cannot be fetched, the subtitles keep working on the ORT path.
 
 `apps/monkey-script/engine-dev/` holds the engine's conversion tools and its standalone test page.
 
