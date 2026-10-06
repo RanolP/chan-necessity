@@ -498,6 +498,10 @@ async function vadSpeech(pcm: Float32Array) {
 const BLOCK = 3 * 16000;
 const KEEP_BLOCKS = 8; // 24 s of closed audio
 const ROLLBACK = 5;
+// Only the last FORCED_MAX tokens of the previous text are forced. Prefill
+// costs ~12 ms a token, and the whole text of 24 s of speech (~90 tokens)
+// made it the bulk of a hop; the earlier text keeps its place in st.tokens.
+const FORCED_MAX = 32;
 // Prompt rows the engine's KV cache holds: ~35 system + history, 8 × 39
 // closed-block audio, ~39 open, the forced text of 24 s of speech and the
 // decode budget fit with room to spare.
@@ -685,11 +689,12 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
     const seen = [...st.histIds, ...st.pendingHist];
     const forced = trimLoop(seen, st.tokens.slice(0, Math.max(0, st.tokens.length - ROLLBACK)));
     const lead = [...seen, ...forced].slice(-LOOP_SPAN);
+    const forcedTail = forced.slice(-FORCED_MAX);
     const stopStream = (gen: readonly number[]) => loopStop([...lead, ...gen]);
     const pre = kv ? [] : prefixIds(st.histIds);
     const past = kv ? kv.len : 0;
     const audioAt = pre.length;
-    const ids = [...pre, ...Array<number>(A).fill(P.audio_pad_id), ...P.suffix_ids, ...(cfg.language_prefix_ids[m.lang] || []), ...forced];
+    const ids = [...pre, ...Array<number>(A).fill(P.audio_pad_id), ...P.suffix_ids, ...(cfg.language_prefix_ids[m.lang] || []), ...forcedTail];
     await paced(m.pace, true);
     const tPre = performance.now();
     const audio = parts.length ? concatFeatures(parts) : null;
@@ -714,7 +719,7 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
         took: Math.round(timing.totalMs),
         encMs: Math.round(encMs),
         prefill: ids.length,
-        forced: forced.length,
+        forced: forcedTail.length,
         audioTokens: A,
         cached: past,
         prefillMs: Math.round(r.prefillMs),
