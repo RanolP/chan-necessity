@@ -227,6 +227,10 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
     acc = qdot(token, r, lane); ${two ? `acc2 = qdot(token, r + ${N}u, lane);` : ""}
   }
   red[li] = acc; red2[li] = acc2; workgroupBarrier();
+  for (var s = 16u; s > 0u; s >>= 1u) {
+    if (lane < s) { red[li] += red[li + s]; red2[li] += red2[li + s]; }
+    workgroupBarrier();
+  }
   if (lane == 0u && r < ${N}u && token < u.tokens) {
     let v = ${q("red[li]")};
     ${mode === "plain" ? `y[token * ${N}u + r] = v;` : mode === "resid" ? `y[token * ${N}u + r] = ${q(`y[token * ${N}u + r] + v`)};` : `let g = v; let sg = ${q("g * " + q("1.0 / (1.0 + exp(-g))"))}; y[token * ${N}u + r] = ${q("sg * " + q("red2[li]"))};`}
