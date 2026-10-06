@@ -4,6 +4,7 @@ import { mergeTranscript, commitPoint } from "./merge.ts";
 import WORKER_SOURCE from "virtual:captions-worker";
 import { loadEngineAssets } from "./assets.ts";
 import { createCaptionHistory } from "./history.ts";
+import { backoff, mayRunAt, notePlaying, noteWaiting, rebase, stalled, step } from "./governor.ts";
 import { getLogger, KEY_LOG_LEVEL, toLogLevel } from "../shared/logtape.ts";
 import { registerPlayerButton } from "../shared/player-bar.ts";
 import { kstToMs, liveOpenDate, watchedWallTime } from "../shared/broadcast-time.ts";
@@ -842,6 +843,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         // inside the buffer sees tens of seconds ahead, and the live edge
         // after it would read as starved until the samples aged out.
         gov.aheads.length = 0;
+        rebase(gov, performance.now());
         render();
     }
     document.addEventListener(
@@ -865,15 +867,11 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
     // what was said meanwhile; it renders no frames, so only the buffer and
     // stall checks apply there.
     const gov = {
-        factor: 1, // wait after a run = run time × (factor − 1)
-        pauseUntil: 0,
-        nextRunAt: 0,
-        cleanSince: 0,
+        ...backoff(),
         open: true,
         frames: [] as number[], // rAF intervals, ms
         quality: [] as { t: number; dropped: number; total: number; inFlight: boolean }[], // { t, dropped, total, inFlight }
         aheads: [] as number[], // buffered-ahead samples, s
-        waitingAt: -1e9,
         baseDrop: 0, // drop rate while the model is idle
         busyMs: 0,
         since: performance.now(),
@@ -901,7 +899,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
         const video = cbAudio.playerVideo();
         if (!video || video.paused) return "paused";
         const now = performance.now();
-        if (now - gov.waitingAt < 5000) return "stall";
+        if (stalled(gov, now)) return "stall";
         const ahead = aheadOf(video);
         gov.aheads.push(ahead);
         if (gov.aheads.length > 60) gov.aheads.shift();
@@ -943,17 +941,28 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
             gov.open = open;
             state.worker?.postMessage({ type: "gate", open });
         }
-        if (verdict === "drops" || verdict === "jank" || verdict === "buffer" || verdict === "stall") {
-            gov.cleanSince = now;
-            if (gov.factor >= 8) gov.pauseUntil = now + 10000;
-            gov.factor = Math.min(8, gov.factor * 2);
-        } else if (open && now - gov.cleanSince > 5000) {
-            gov.factor = Math.max(1, gov.factor * 0.85);
-            gov.cleanSince = now - 4000;
-        }
+        step(gov, verdict, now);
     }
-    const mayRun = () => gov.open && performance.now() >= Math.max(gov.nextRunAt, gov.pauseUntil);
-    document.addEventListener("waiting", () => (gov.waitingAt = performance.now()), true);
+    const mayRun = () => gov.open && performance.now() >= mayRunAt(gov);
+    // Only the player's own rebuffers count, and not the one a jump causes.
+    document.addEventListener(
+        "waiting",
+        (event) => {
+            const video = cbAudio.playerVideo();
+            if (video && event.target === video) noteWaiting(gov, performance.now(), video.seeking);
+        },
+        true
+    );
+    document.addEventListener(
+        "playing",
+        (event) => {
+            if (event.target === cbAudio.playerVideo()) notePlaying(gov, performance.now());
+        },
+        true
+    );
+    // A channel switch (SPA navigation) or a source reload restarts the
+    // player's buffer the same way a seek does.
+    cbAudio.onVideoChange(() => rebase(gov, performance.now()));
     setInterval(govern, 500);
     // A hidden tab's timers slow to 1 Hz once it is silent and to about once
     // a minute after 5 minutes; a worker's timers keep their rate, so while
