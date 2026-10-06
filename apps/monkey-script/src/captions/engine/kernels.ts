@@ -1,4 +1,4 @@
-// WGSL for the Qwen3-ASR 1.7B decoder step. Shapes are baked in as constants.
+// WGSL for the Qwen3-ASR decoder step. Shapes are baked in as constants.
 // f16 data is read as packed u32 (unpack2x16float) so no shader-f16 is needed;
 // all accumulation is f32.
 //
@@ -20,7 +20,8 @@ fn r16(x: f32) -> f32 { return unpack2x16float(pack2x16float(vec2<f32>(x, 0.0)))
 export const prec = { r16: true };
 const q = (e: string) => (prec.r16 ? `r16(${e})` : `(${e})`);
 
-export function embedWGSL(rowsPerPart: number): string {
+// Embedding rows are `hidden` int8 values, read as hidden/4 packed u32 words.
+export function embedWGSL({ rowsPerPart, hidden }: { rowsPerPart: number; hidden: number }): string {
   return head + `
 @group(0) @binding(1) var<storage, read_write> h: array<f32>;
 @group(0) @binding(2) var<storage, read> e0: array<u32>;
@@ -31,7 +32,7 @@ export function embedWGSL(rowsPerPart: number): string {
 fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(local_invocation_index) li: u32) {
   if (halted(li)) { return; }
   let tok = st[0]; let part = tok / ${rowsPerPart}u; let row = tok % ${rowsPerPart}u;
-  let d = gid.x; let wi = row * 512u + (d >> 2u);
+  let d = gid.x; let wi = row * ${hidden / 4}u + (d >> 2u);
   var w = 0u;
   switch part { case 0u: { w = e0[wi]; } case 1u: { w = e1[wi]; } default: { w = e2[wi]; } }
   let b = i32(w << (24u - 8u * (d & 3u))) >> 24u;
@@ -66,7 +67,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(local_invocation
     return;
   }
   let id = ids[token]; let part = id / ${rowsPerPart}u; let row = id % ${rowsPerPart}u;
-  let wi = row * 512u + (d >> 2u);
+  let wi = row * ${hidden / 4}u + (d >> 2u);
   var w = 0u;
   switch part { case 0u: { w = e0[wi]; } case 1u: { w = e1[wi]; } default: { w = e2[wi]; } }
   let b = i32(w << (24u - 8u * (d & 3u))) >> 24u;
@@ -102,7 +103,7 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
 
 // q4 GEMV, 8 rows per workgroup, 32 lanes per row, one 32-element block per lane-iteration.
 // mode: "plain" y=W·x, "resid" y+=W·x, "silu" y[r]=silu(W[r]·x)*W[r+N]·x, "lm" logits + per-WG argmax.
-// norm: RMSNorm(x)*nw applied on the fly (K must be 2048).
+// norm: RMSNorm(x)*nw applied on the fly (x is staged whole in workgroup memory).
 export type GemvMode = "plain" | "resid" | "silu" | "lm";
 export function gemvWGSL({ K, N, mode, norm }: { K: number; N: number; mode: GemvMode; norm: boolean }): string {
   const NB = K / 32, ZB = Math.ceil(NB / 2);

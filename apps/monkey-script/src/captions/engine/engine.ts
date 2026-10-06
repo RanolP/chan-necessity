@@ -1,4 +1,4 @@
-// Model-specific WebGPU decoder for Qwen3-ASR 1.7B q4f16.
+// Model-specific WebGPU decoder for the Qwen3-ASR 0.6B and 1.7B q4f16 exports.
 // Everything (pipelines, buffers, a fixed-size KV cache, bind groups) is built once at load;
 // a decode step is 6 dispatches per layer + embed + 2 LM-head halves + argmax, and the
 // argmax kernel feeds the next token back on the GPU, so steps chain with no readback.
@@ -8,6 +8,9 @@ const ST_WORDS = 16 + 512;
 
 export interface EngineConfig {
   hidden: number;
+  heads: number;
+  kv_heads: number;
+  head_dim: number;
   intermediate: number;
   vocab: number;
   layers: number;
@@ -89,6 +92,12 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
   const man: Manifest = await (await get(manifestUrl)).json();
   const C = man.config;
   const H = C.hidden, I = C.intermediate, V = C.vocab, NL = C.layers;
+  // The attention, rope and KV-cache kernels bake in Qwen3's 16 query heads,
+  // 8 KV heads and head_dim 128 (shared by the 0.6B and 1.7B exports); only
+  // hidden, intermediate, vocab and layers follow the manifest.
+  if (C.heads !== 16 || C.kv_heads !== 8 || C.head_dim !== 128) throw new Error(`engine supports heads/kv_heads/head_dim 16/8/128, manifest ${String(C.source)} has ${C.heads}/${C.kv_heads}/${C.head_dim}`);
+  if (H % 1024) throw new Error(`engine needs hidden to be a multiple of 1024, manifest ${String(C.source)} has ${H}`);
+  const A = C.heads * C.head_dim;
   // Three embedding parts keep prefill-embed at 8 storage buffers (the WebGPU
   // default per stage) with each part under the 128 MiB binding cap; V is not
   // a multiple of 3, so the last part holds fewer rows.
@@ -104,11 +113,11 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     catch (e) { const ci = await module.getCompilationInfo(); throw new Error(`pipeline ${name}: ${(e as Error).message}\n${ci.messages.map((m) => `${m.lineNum}:${m.linePos} ${m.message}`).join("\n")}`); }
   };
   const P = {
-    embed: await mk("embed", K.embedWGSL(EMB_ROWS)),
+    embed: await mk("embed", K.embedWGSL({ rowsPerPart: EMB_ROWS, hidden: H })),
     prefillEmbed: await mk("prefill-embed", K.prefillEmbedWGSL({ rowsPerPart: EMB_ROWS, hidden: H })),
     prefillRms: await mk("prefill-rms", K.rmsWGSL({ K: H })),
     prefillQkv: await mk("prefill-qkv", K.gemmWGSL({ K: H, N: 4096, mode: "plain" })),
-    prefillO: await mk("prefill-o", K.gemmWGSL({ K: H, N: H, mode: "resid" })),
+    prefillO: await mk("prefill-o", K.gemmWGSL({ K: A, N: H, mode: "resid" })),
     prefillGu: await mk("prefill-gu", K.gemmWGSL({ K: H, N: I, mode: "silu" })),
     prefillDown: await mk("prefill-down", K.gemmWGSL({ K: I, N: H, mode: "resid" })),
     prefillRope: await mk("prefill-rope", K.ropePrefillWGSL({ LMAX, theta: C.rope_theta })),
@@ -116,7 +125,7 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     qkv: await mk("qkv", K.gemvWGSL({ K: H, N: 4096, mode: "plain", norm: true })),
     rope: await mk("rope", K.ropeWGSL({ LMAX, theta: C.rope_theta })),
     attn: await mk("attn", K.attnWGSL({ LMAX, scale: C.attn_scale_f16 })),
-    o: await mk("o", K.gemvWGSL({ K: H, N: H, mode: "resid", norm: false })),
+    o: await mk("o", K.gemvWGSL({ K: A, N: H, mode: "resid", norm: false })),
     gu: await mk("gu", K.gemvWGSL({ K: H, N: I, mode: "silu", norm: true })),
     down: await mk("down", K.gemvWGSL({ K: I, N: H, mode: "resid", norm: false })),
     lm: await mk("lm", K.gemvWGSL({ K: H, N: LM_HALF, mode: "lm", norm: true })),
