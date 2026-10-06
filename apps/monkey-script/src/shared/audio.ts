@@ -45,7 +45,7 @@ export const cbAudio = (() => {
     let captureUsers = 0;
     let pan = 0;
     let video: CaptureVideo | null = null;
-    let captured: { video: CaptureVideo; key: string; node: AudioNode; owned: boolean } | null = null;
+    let captured: { video: CaptureVideo; key: string; node: AudioNode } | null = null;
     const graphs = new WeakMap<HTMLMediaElement, Graph>();
     const streams = new WeakMap<HTMLMediaElement, MediaStream>();
     const listeners = new Set<(video: HTMLVideoElement, change: VideoChange) => void>();
@@ -126,11 +126,10 @@ export const cbAudio = (() => {
         } else key = "element";
         if (captured?.video === el && captured.key === key) return;
         uncapture();
-        const owned = !!track;
         const node = track ? ctx.createMediaStreamSource(new MediaStream([track])) : route(el, ctx).source;
         node.connect(bus);
-        captured = { video: el, key, node, owned };
-        logger.info("capture bound {via} {src}", { via: owned ? "captureStream" : "element", src: el.currentSrc.slice(0, 60) });
+        captured = { video: el, key, node };
+        logger.info("capture bound {via} {src}", { via: track ? "captureStream" : "element", src: el.currentSrc.slice(0, 60) });
     }
 
     function watch(el: CaptureVideo) {

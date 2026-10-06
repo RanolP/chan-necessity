@@ -239,12 +239,6 @@ export function parseSileroVadWeights(model: ArrayBuffer | Uint8Array): SileroVa
     };
 }
 
-export async function loadSileroVadWeights(url = SILERO_VAD_V5_URL): Promise<SileroVadWeights> {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Silero VAD download failed: ${response.status} ${response.statusText}`);
-    return parseSileroVadWeights(await response.arrayBuffer());
-}
-
 function sigmoid(value: number): number {
     return 1 / (1 + Math.exp(-value));
 }

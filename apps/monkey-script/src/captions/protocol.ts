@@ -96,7 +96,6 @@ export interface ResultMessage {
     decodeMs?: number;
     skipped?: "vad";
     text?: string;
-    melMs?: number;
     encPrefillMs?: number;
     stream?: boolean;
     decoded?: boolean;
