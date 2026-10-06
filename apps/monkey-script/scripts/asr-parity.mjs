@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Numerical parity of the WebGPU captions pipeline against the onnxruntime
+// Numerical parity of the WebGPU captions pipeline against the ORT
 // reference frozen in fixtures/asr-parity-<lang>/ (ORT CPU on the same Hugging
 // Face export, on one real speech clip):
 //   encoder   ours vs ORT's encoder.fp16.onnx audio features, same log-mel input

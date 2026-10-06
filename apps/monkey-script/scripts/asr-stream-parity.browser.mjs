@@ -1,19 +1,17 @@
-// Browser half of scripts/asr-stream-parity.mjs: drives one captions worker
-// bundle (?side=new|ort) through its real `stream` protocol, one 1 s hop at a
-// time, each hop sent only after the previous result arrived, so hop
-// boundaries depend on the audio alone and never on wall time. Pacing is off
-// (no frame waits) and the ORT side runs with engine:false (its pure ORT
-// decoder_step loop). The per-hop records land in window.__res.
+// Browser half of scripts/asr-stream-parity.mjs: drives the captions worker
+// bundle through its real `stream` protocol, one 1 s hop at a time, each hop
+// sent only after the previous result arrived, so hop boundaries depend on the
+// audio alone and never on wall time. Pacing is off (no frame waits). The
+// per-hop records land in window.__res.
 const q = new URLSearchParams(location.search);
-const side = q.get("side");
 const vad = q.get("vad") === "1";
-const res = (window.__res = { side, vad, phase: "load", hops: [], log: [] });
+const res = (window.__res = { vad, phase: "load", hops: [], log: [] });
 const note = (m) => res.log.push(`[${(performance.now() / 1000).toFixed(1)}s] ${m}`);
 
 async function run() {
     const meta = await (await fetch("hops.json")).json();
     const pcm = new Float32Array(await (await fetch("hops.f32")).arrayBuffer());
-    const w = new Worker(`${side}-worker.js`, { type: "module" });
+    const w = new Worker("worker.js", { type: "module" });
     let waiter = null;
     w.onmessage = (e) => {
         const m = e.data;
@@ -24,9 +22,7 @@ async function run() {
     };
     w.onerror = (e) => note(`worker onerror ${e.message} ${e.filename}:${e.lineno}`);
     const ask = (msg, transfer = []) => new Promise((r) => { waiter = r; w.postMessage(msg, transfer); });
-    const engineAssets = side === "new"
-        ? { manifest: await (await fetch("/e/manifest.json")).arrayBuffer(), qknorm: await (await fetch("/e/qknorm.bin")).arrayBuffer() }
-        : null; // ORT side: no engine, so decode is ORT decoder_step only
+    const engineAssets = { manifest: await (await fetch("/e/manifest.json")).arrayBuffer(), qknorm: await (await fetch("/e/qknorm.bin")).arrayBuffer() };
     const ready = await ask({ type: "load", repo: meta.repo, rev: meta.rev, cacheName: "asr-stream-parity", engineAssets, logLevel: "warning" });
     if (ready.type !== "ready") throw new Error(`load failed: ${JSON.stringify(ready).slice(0, 1500)}`);
     res.ready = ready;

@@ -1,30 +1,32 @@
 #!/usr/bin/env node
 // Hop-by-hop parity of the streaming caption path: the in-house WebGPU worker
-// (this tree) against the ORT-era worker (an older checkout, e.g. a git
-// worktree at e4059b5), both driven through the real `stream` message
-// protocol on the same PCM. Each hop is 1 s (streamHopSec 1), pre-scaled and
-// quiet-flagged exactly as captions/index.ts does before posting, and sent
-// only after the previous result, so both sides see identical hop boundaries.
-// Per hop it compares the VAD gate, the confirmed and tentative token ids
-// (the last ROLLBACK = 5 are tentative) and the text the page would display.
+// (this tree), driven through the real `stream` message protocol, against the
+// per-hop records the ORT-era worker (e4059b5, ORT web on WebGPU) produced on
+// the same PCM, frozen in fixtures/asr-stream-parity-<lang>/. Each hop is 1 s
+// (streamHopSec 1), pre-scaled and quiet-flagged exactly as captions/index.ts
+// does before posting, and sent only after the previous result, so hop
+// boundaries match the frozen run. Per hop it compares the VAD gate, the
+// confirmed and tentative token ids (the last ROLLBACK = 5 are tentative) and
+// the text the page would display.
 //
-//   node scripts/asr-stream-parity.mjs <ort-era monkey-script dir> <hf model dir> <16 kHz mono f32le pcm> [lang]
+//   node scripts/asr-stream-parity.mjs <hf model dir> <16 kHz mono f32le pcm> [lang]
 //
 // The model dir is the Hugging Face export the repo/rev below names (1.7B:
 // the in-house engine is built for that export only). Chrome is reached over
 // CDP at STREAM_PARITY_CDP (default http://127.0.0.1:9444): launch a separate
 // instance with --enable-unsafe-webgpu and its own --user-data-dir. Each run
-// opens and closes its own tab. STREAM_PARITY_RUNS picks runs as side:vad
-// pairs (default "ort:1,new:1,ort:0,new:0"); results stay in the output dir,
-// so STREAM_PARITY_RUNS=none only re-compares saved runs.
+// opens and closes its own tab. STREAM_PARITY_RUNS picks the VAD settings to
+// run (default "1,0"); results stay in the output dir, so
+// STREAM_PARITY_RUNS=none only re-compares saved runs.
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createReadStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
 
-const [ortDir, modelDir, pcmPath, lang = "ko"] = process.argv.slice(2).map((x, i) => (i < 3 ? resolve(x) : x));
-if (!ortDir || !modelDir || !pcmPath) throw new Error("usage: node scripts/asr-stream-parity.mjs <ort-era monkey-script dir> <hf model dir> <pcm.f32> [lang]");
+const [modelDir, pcmPath, lang = "ko"] = process.argv.slice(2).map((x, i) => (i < 2 ? resolve(x) : x));
+if (!modelDir || !pcmPath) throw new Error("usage: node scripts/asr-stream-parity.mjs <hf model dir> <pcm.f32> [lang]");
 const here = resolve(import.meta.dirname, "..");
 const out = join(tmpdir(), "asr-stream-parity");
 mkdirSync(out, { recursive: true });
@@ -32,13 +34,17 @@ const CDP = process.env.STREAM_PARITY_CDP || "http://127.0.0.1:9444";
 // 9333 is the user's headed Chrome running a live caption tab; a parity run
 // loads a second 1.7B model beside it and once ran the GPU out of memory.
 if (new URL(CDP).port === "9333") throw new Error("refusing CDP port 9333 (the live caption Chrome); launch a separate instance");
-const RUNS = (process.env.STREAM_PARITY_RUNS || "ort:1,new:1,ort:0,new:0").split(",").filter((r) => r !== "none").map((r) => r.split(":"));
+const RUNS = (process.env.STREAM_PARITY_RUNS || "1,0").split(",").filter((r) => r !== "none");
+const fixture = resolve(import.meta.dirname, `fixtures/asr-stream-parity-${lang}`);
+const reference = (vad) => JSON.parse(readFileSync(join(fixture, `ort-vad${vad}.json`), "utf8"));
 const MIN_FREE_MIB = Number(process.env.STREAM_PARITY_MIN_FREE_MIB || 3500);
 const SR = 16000, HOP = SR, ROLLBACK = 5, SILENCE_RMS = 0.004;
 const REPO = "jiangzhuo9357/Qwen3-ASR-1.7B-ONNX", REV = "fcc238dfdc95cdcccaa9a7e2c7f5abc2f94f44a7";
 
 // ---- hop schedule: the page's quiet flag and slow-peak gain (index.ts) ----
 const raw = readFileSync(pcmPath);
+const sha = createHash("sha256").update(raw).digest("hex");
+if (sha !== reference(1).source.pcmSha256) throw new Error(`${pcmPath}: sha256 ${sha}, the ${lang} reference was frozen from ${reference(1).source.pcmSha256}`);
 const audio = new Float32Array(raw.buffer, raw.byteOffset, raw.length >> 2);
 const nHops = Math.floor(audio.length / HOP);
 const hopsPcm = new Float32Array(nHops * HOP);
@@ -58,9 +64,8 @@ for (let i = 0; i < nHops; i++) {
 writeFileSync(join(out, "hops.f32"), hopsPcm);
 writeFileSync(join(out, "hops.json"), JSON.stringify({ repo: REPO, rev: REV, lang, hopSamples: HOP, maxTokens: Math.round(16 + 12 * (HOP / SR)), hops }));
 
-// ---- the two worker bundles, as tsdown.config.ts builds the inlined one ----
-// The prelude points Hugging Face and the VAD CDN at the local model dir; the
-// ORT side still loads onnxruntime-web itself from jsDelivr.
+// ---- the worker bundle, as tsdown.config.ts builds the inlined one ----
+// The prelude points Hugging Face and the VAD CDN at the local model dir.
 const prelude = `{
   const f = self.fetch.bind(self), o = self.location.origin;
   const map = (u) => {
@@ -78,11 +83,11 @@ const prelude = `{
 }
 `;
 const { build } = await import("rolldown");
-for (const [side, root] of [["new", here], ["ort", ortDir]]) {
-    const r = await build({ input: join(root, "src/captions/worker/main.ts"), platform: "browser", write: false, logLevel: "warn", output: { format: "esm", minify: false, codeSplitting: false } });
+{
+    const r = await build({ input: join(here, "src/captions/worker/main.ts"), platform: "browser", write: false, logLevel: "warn", output: { format: "esm", minify: false, codeSplitting: false } });
     const chunks = r.output.filter((c) => c.type === "chunk");
-    if (chunks.length !== 1) throw new Error(`${side} worker: expected 1 chunk, got ${chunks.length}`);
-    writeFileSync(join(out, `${side}-worker.js`), prelude + chunks[0].code);
+    if (chunks.length !== 1) throw new Error(`worker: expected 1 chunk, got ${chunks.length}`);
+    writeFileSync(join(out, "worker.js"), prelude + chunks[0].code);
 }
 writeFileSync(join(out, "index.html"), '<!doctype html><meta charset="utf-8"><title>asr stream parity</title><script type="module" src="driver.js"></script>');
 writeFileSync(join(out, "driver.js"), readFileSync(resolve(import.meta.dirname, "asr-stream-parity.browser.mjs")));
@@ -105,11 +110,11 @@ const freeMiB = () => {
     const [used, total] = execFileSync("nvidia-smi", ["--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"], { encoding: "utf8" }).trim().split(",").map(Number);
     return { used, total, free: total - used };
 };
-async function cdpRun(side, vad) {
+async function cdpRun(vad) {
     const mem = freeMiB();
-    console.error(`[${side} vad=${vad}] GPU before load: ${mem.used}/${mem.total} MiB used`);
+    console.error(`[vad=${vad}] GPU before load: ${mem.used}/${mem.total} MiB used`);
     if (mem.free < MIN_FREE_MIB) throw new Error(`only ${mem.free} MiB VRAM free (< ${MIN_FREE_MIB}); not loading a model`);
-    const tab = await (await fetch(`${CDP}/json/new?${encodeURIComponent(`${origin}?side=${side}&vad=${vad}`)}`, { method: "PUT" })).json();
+    const tab = await (await fetch(`${CDP}/json/new?${encodeURIComponent(`${origin}?vad=${vad}`)}`, { method: "PUT" })).json();
     const ws = new WebSocket(tab.webSocketDebuggerUrl);
     await new Promise((ok, no) => { ws.onopen = ok; ws.onerror = no; });
     let id = 0;
@@ -131,13 +136,13 @@ async function cdpRun(side, vad) {
         ws.close();
         await fetch(`${CDP}/json/close/${tab.id}`).catch(() => {});
     }
-    if (res.phase !== "done") throw new Error(`[${side} vad=${vad}] ${res.log.at(-1)}`);
-    if (res.side !== side || res.vad !== (vad === "1")) throw new Error(`asked side=${side} vad=${vad}, the page ran side=${res.side} vad=${res.vad}`);
-    writeFileSync(join(out, `run-${side}-vad${vad}.json`), JSON.stringify(res));
+    if (res.phase !== "done") throw new Error(`[vad=${vad}] ${res.log.at(-1)}`);
+    if (res.vad !== (vad === "1")) throw new Error(`asked vad=${vad}, the page ran vad=${res.vad}`);
+    writeFileSync(join(out, `run-vad${vad}.json`), JSON.stringify(res));
     return res;
 }
 try {
-    for (const [side, vad] of RUNS) await cdpRun(side, vad);
+    for (const vad of RUNS) await cdpRun(vad);
 } finally {
     server.close();
 }
@@ -155,9 +160,9 @@ function display(hops) {
 }
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 function compare(vad) {
-    const f = (s) => join(out, `run-${s}-vad${vad}.json`);
-    if (!existsSync(f("new")) || !existsSync(f("ort"))) return null;
-    const ours = JSON.parse(readFileSync(f("new"), "utf8")).hops, ort = JSON.parse(readFileSync(f("ort"), "utf8")).hops;
+    const f = join(out, `run-vad${vad}.json`);
+    if (!existsSync(f)) return null;
+    const ours = JSON.parse(readFileSync(f, "utf8")).hops, ort = reference(vad).hops;
     const dO = display(ours), dR = display(ort);
     const split = (h) => (h.ids ? { confirmed: h.ids.slice(0, Math.max(0, h.ids.length - ROLLBACK)), tentative: h.ids.slice(Math.max(0, h.ids.length - ROLLBACK)) } : { confirmed: null, tentative: null });
     let matching = 0, first = null;
