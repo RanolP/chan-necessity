@@ -22,27 +22,34 @@ declare global {
     const KEY_PAN = "audio.pan";
     const pageWindow = typeof unsafeWindow === "undefined" ? window : unsafeWindow;
 
-    const clampPan = (v: number) => (Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0);
+    // A split column moves only inside its position's range (L -1..0,
+    // C -0.5..0.5, R 0..1); the single player gets the full -1..1.
+    const bounds = () => cbSplit.panRange() ?? { min: -1, max: 1, def: 0 };
+    const clampPan = (v: number) => {
+        const { min, max } = bounds();
+        return Math.max(min, Math.min(max, Number.isFinite(v) ? v : 0));
+    };
+    // The column's own choice sticks; only a new position (another range or
+    // starting value from the host) resets it to that position's start.
+    const rangeKey = () => {
+        const r = cbSplit.panRange();
+        return r ? `${r.min},${r.max},${r.def}` : "";
+    };
+    let seenRange = rangeKey();
     let pan = 0;
     try {
-        pan = cbSplit.frame ? clampPan(cbSplit.pan() ?? 0) : clampPan(Number(GM_getValue(KEY_PAN, 0)));
+        pan = cbSplit.frame ? clampPan(bounds().def) : clampPan(Number(GM_getValue(KEY_PAN, 0)));
     } catch (error) {
         logger.error("pan setting load failed {error}", { error });
     }
 
-    function apply() {
-        const video = cbAudio.playerVideo();
-        if (!video) return;
-        const graph = pan === 0 ? cbAudio.graphOf(video) : cbAudio.route(video);
-        if (!graph) return;
-        const ctx = graph.panner.context;
-        graph.panner.pan.setTargetAtTime(pan, ctx.currentTime, 0.015);
-    }
+    // The shared graph keeps the value and carries it to a swapped <video>.
+    const apply = () => cbAudio.setPan(pan);
 
     async function setPan(value: number) {
         pan = Math.abs(value) < 0.04 ? 0 : clampPan(Math.round(value * 20) / 20);
-        // A split column's pan comes from its position; the saved
-        // single-player value stays as it was.
+        // A split column's pan lives only as long as its position; the
+        // saved single-player value stays as it was.
         if (!cbSplit.frame) GM_setValue(KEY_PAN, pan);
         syncUi();
         if (pan !== 0) await cbAudio.context();
@@ -101,7 +108,12 @@ declare global {
         // keys as seek/volume shortcuts; the slider keeps both to itself.
         for (const type of ["click", "pointerdown", "mousedown", "keydown", "wheel"])
             item.addEventListener(type, (event) => event.stopPropagation());
-        range.addEventListener("input", () => setPan(Number(range.value)));
+        // The slider keeps the full L..R scale everywhere; in a split column
+        // a drag past the position's range holds the thumb at its edge.
+        range.addEventListener("input", () => {
+            setPan(Number(range.value));
+            if (Number(range.value) !== pan) range.value = String(pan);
+        });
         range.addEventListener("dblclick", () => {
             range.value = "0";
             setPan(0);
@@ -114,11 +126,11 @@ declare global {
     function tick() {
         try {
             if (!onPlayerPage()) return;
-            if (cbSplit.frame && cbSplit.pan() !== pan) setPan(cbSplit.pan() ?? 0);
+            if (cbSplit.frame && rangeKey() !== seenRange) {
+                seenRange = rangeKey();
+                setPan(bounds().def);
+            }
             ensureItem();
-            // A swapped <video> (SPA navigation, quality reload) gets the
-            // current pan once the context is running.
-            if (cbAudio.running()) apply();
         } catch (error) {
             logger.error("pan tick failed {href}", { href: location.href, error });
         }
@@ -135,6 +147,7 @@ declare global {
     window.addEventListener("pointerdown", resume, true);
     window.addEventListener("keydown", resume, true);
 
+    apply();
     pageWindow.ChzzkBestPan = { get: () => pan, set: setPan, audio: cbAudio };
     setInterval(tick, 1000);
     let scheduled = false;

@@ -1,5 +1,6 @@
 import { getLogger } from "../shared/logtape.ts";
 import { cbSplit } from "../shared/split-context.ts";
+import { registerPlayerButton } from "../shared/player-bar.ts";
 
 type Pos = "L" | "C" | "R";
 interface MenuAction {
@@ -83,7 +84,9 @@ const logger = getLogger(["split-view"]);
 // Chzzk's header and sidebar stay, and a grid over #layout-body holds one
 // same-origin /live/<id> iframe per column. The script runs again inside
 // each frame (see cbSplit at the top): the frame restyles itself to video
-// over chat, takes its pan from its position (L -1, C 0, R +1), and only
+// over chat, takes its pan range from its position (L -1..0 starting at -1,
+// C -0.5..0.5 starting at 0, R 0..1 starting at +1; the column's slider
+// moves freely inside it until the position changes), and only
 // the leftmost column may run subtitles, through the top page's one model.
 // Columns are reordered with CSS order, never by moving nodes, because a
 // moved iframe reloads.
@@ -95,11 +98,22 @@ const logger = getLogger(["split-view"]);
     const KEY_LAYOUT = "split.layout";
     const MAX = 3;
     const POS: Record<number, Pos[]> = { 1: ["C"], 2: ["L", "R"], 3: ["L", "C", "R"] };
-    const PAN = { L: -1, C: 0, R: 1 };
+    const PAN = { L: { min: -1, max: 0, def: -1 }, C: { min: -0.5, max: 0.5, def: 0 }, R: { min: 0, max: 1, def: 1 } };
+    function writePan(frame: HTMLIFrameElement, p: Pos) {
+        const { min, max, def } = PAN[p];
+        frame.dataset.cbPan = String(def);
+        frame.dataset.cbPanMin = String(min);
+        frame.dataset.cbPanMax = String(max);
+    }
     const positions = (n: number) => POS[n] ?? [];
     const currentId = () => location.pathname.match(LIVE_RE)?.[1]?.toLowerCase() ?? null;
     const ICON =
         '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg>';
+
+    // The player bar sizes and centers only .pzp-ui-icon__svg on a 36x36
+    // box; the same drawing, padded onto that box.
+    const BAR_ICON =
+        '<svg width="36" height="36" viewBox="-6 -6 36 36" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" class="pzp-ui-icon__svg"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg>';
 
     function addStyle(css: string) {
         const style = document.createElement("style");
@@ -309,7 +323,6 @@ const logger = getLogger(["split-view"]);
         .cb-split-item b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cb-split-item small { font-size: 12px; color: var(--cbs-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cb-split-hint { padding: 4px 8px; font-size: 12px; color: var(--cbs-sub); }
-        .cb-split-button[aria-pressed="true"] .pzp-ui-icon { color: #00ffa3; }
     `);
 
     const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string): HTMLElementTagNameMap[K] => {
@@ -403,10 +416,13 @@ const logger = getLogger(["split-view"]);
             emptyEl!.hidden = cols.length > 0;
         }
         function syncFrame(c: Column, p: Pos, stt: boolean) {
-            c.frame!.dataset.cbPan = String(PAN[p]);
             c.frame!.dataset.cbStt = stt ? "1" : "0";
+            // Re-renders keep the column's own pan; only a new position
+            // resets it, pushed now rather than on the frame's next tick.
+            if (c.frame!.dataset.cbPanMin === String(PAN[p].min) && c.frame!.dataset.cbPanMax === String(PAN[p].max)) return;
+            writePan(c.frame!, p);
             try {
-                c.frame!.contentWindow?.ChzzkBestPan?.set(PAN[p]);
+                c.frame!.contentWindow?.ChzzkBestPan?.set(PAN[p].def);
             } catch (error) {
                 logger.error`pan push failed ${c.id} ${error}`;
             }
@@ -472,7 +488,7 @@ const logger = getLogger(["split-view"]);
             frame.dataset.cbCol = c.id;
             const i = cols.indexOf(c.id);
             const p = positions(cols.length)[i] ?? "C";
-            frame.dataset.cbPan = String(PAN[p]);
+            writePan(frame, p);
             frame.dataset.cbStt = i === 0 ? "1" : "0";
             frame.allow = "autoplay; fullscreen; picture-in-picture; clipboard-write";
             frame.allowFullscreen = true;
@@ -715,21 +731,19 @@ const logger = getLogger(["split-view"]);
     }
 
     // ---- entry: a player-bar button on a live page -----------------------
-    function ensureEntry() {
-        const bar = document.querySelector(".pzp-pc__bottom-buttons-right");
-        if (!bar || bar.querySelector(".cb-split-button")) return;
-        const button = el("button", "cb-split-button pzp-button pzp-pc-ui-button");
-        button.setAttribute("aria-label", "스플릿 뷰");
-        button.innerHTML = '<span class="pzp-button__tooltip pzp-button__tooltip--top">스플릿 뷰</span><span class="pzp-ui-icon">' + ICON + "</span>";
-        button.addEventListener("click", (event) => {
-            event.stopPropagation();
+    registerPlayerButton({
+        className: "cb-split-button",
+        label: "스플릿 뷰",
+        icon: BAR_ICON,
+        order: 10,
+        when: () => currentId() !== null,
+        onClick: () => {
             const cur = currentId();
             const saved = loadLayout();
             saveLayout(cur && !saved.includes(cur) ? [cur] : saved);
             location.assign(cbSplit.HOST_PATH);
-        });
-        bar.prepend(button);
-    }
+        },
+    });
 
     function tick() {
         try {
@@ -737,7 +751,6 @@ const logger = getLogger(["split-view"]);
             if (isHost && !host.mounted() && document.body) host.mount();
             else if (!isHost && host.mounted()) host.unmount();
             if (isHost) host.place();
-            if (currentId()) ensureEntry();
             decorateSidebar();
         } catch (error) {
             logger.error`tick failed ${location.href} ${error}`;

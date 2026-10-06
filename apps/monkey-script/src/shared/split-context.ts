@@ -2,8 +2,9 @@
 // The split page (/cbsplit) hosts up to three /live/<id> iframes, and the
 // script runs again inside each. A column frame learns its place from the
 // dataset of its <iframe> element (same origin): cbCol (channel id), cbPan
-// and cbStt ("1" in the one column that may run subtitles). The host may
-// rewrite cbPan and cbStt at any time; readers poll them.
+// (the position's starting pan), cbPanMin/cbPanMax (the range the column's
+// slider may move in) and cbStt ("1" in the one column that may run
+// subtitles). The host may rewrite these at any time; readers poll them.
 // Published by captions/index.ts on the top window; the captions module
 // owns the full shape.
 export interface SttHub<Reply = unknown, Request extends object = object> {
@@ -17,12 +18,18 @@ declare global {
     }
 }
 
+export interface PanRange {
+    min: number;
+    max: number;
+    def: number;
+}
+
 export interface SplitContext {
     HOST_PATH: string;
     frame: boolean;
     col: string | null;
     isHost(): boolean;
-    pan(): number | null;
+    panRange(): PanRange | null;
     sttHere(): boolean;
     hub(): SttHub | null;
 }
@@ -42,7 +49,16 @@ export const cbSplit: SplitContext = (() => {
         frame,
         col: frame ? (el?.dataset.cbCol ?? null) : null,
         isHost: () => !frame && window.top === window && location.pathname === HOST_PATH,
-        pan: () => (frame ? Number(el?.dataset.cbPan) || 0 : null),
+        panRange: () => {
+            if (!frame || !el) return null;
+            const num = (v: string | undefined, fallback: number) => {
+                const n = Number(v);
+                return v !== undefined && v !== "" && Number.isFinite(n) ? n : fallback;
+            };
+            const min = num(el.dataset.cbPanMin, -1);
+            const max = Math.max(min, num(el.dataset.cbPanMax, 1));
+            return { min, max, def: Math.max(min, Math.min(max, num(el.dataset.cbPan, 0))) };
+        },
         sttHere: () => !frame || el?.dataset.cbStt === "1",
         hub: () => {
             try {
