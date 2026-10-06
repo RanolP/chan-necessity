@@ -1,6 +1,6 @@
 // Browser half of scripts/asr-parity.mjs: runs the real WGSL encoder and
-// decoder engine on the page's WebGPU device and compares them with the ORT
-// reference files served beside this bundle. The result lands in
+// decoder engine on the page's WebGPU device and compares them with the frozen
+// ORT reference files served beside this bundle. The result lands in
 // window.__parity ({ done, error?, ...report }).
 //
 // ?stage=encoder  encoder only, against ORT's audio features
@@ -87,13 +87,6 @@ async function run() {
     return p;
   });
 
-  if (stage === "stages") {
-    // Op-by-op against scripts/asr-stages.py; firstBad is the first stage in
-    // pipeline order with cosine < 0.999, any NaN, or all zeros.
-    report.stages = await guard("stages", () => compareStages(device, engine, P, ids, audioAt, features, ortTokens));
-    return finish();
-  }
-
   if (stage === "decoder") {
     // ORT's greedy loop also started from ORT's features, so this compares decoders only.
     const tokens = await guard("decode", async () => {
@@ -145,70 +138,6 @@ async function run() {
     report.hop1s = { encodeMs: Math.round(tEnc - t), prefillMs: Math.round(tPre - tEnc), decodeMs: Math.round(tEnd - tPre), tokens: hd.tokens.length + 1, totalMs: Math.round(tEnd - t) };
   });
   return finish();
-}
-
-function stat(a, b, width) {
-  let max = 0, dot = 0, na = 0, nb = 0, nan = 0, zeros = 0, worst = 1, worstRow = -1;
-  for (let r = 0; r < b.length / width; r++) {
-    let rd = 0, ra = 0, rb = 0;
-    for (let i = r * width; i < (r + 1) * width; i++) {
-      const x = a[i], y = b[i];
-      if (Number.isNaN(x)) { nan++; continue; }
-      if (x === 0) zeros++;
-      max = Math.max(max, Math.abs(x - y)); rd += x * y; ra += x * x; rb += y * y;
-    }
-    dot += rd; na += ra; nb += rb;
-    const c = rd / Math.sqrt(ra * rb || 1);
-    if (c < worst) { worst = c; worstRow = r; }
-  }
-  const cos = dot / Math.sqrt(na * nb || 1);
-  return { cos: +cos.toFixed(6), maxAbs: +max.toPrecision(4), nan, zeros, n: b.length, worstRowCos: +worst.toFixed(4), worstRow, bad: !(cos >= 0.999) || nan > 0 || zeros === b.length };
-}
-
-async function compareStages(device, engine, P, ids, audioAt, features, ortTokens) {
-  const meta = await (await fetch("stages.json")).json();
-  const ort = async (name) => new Float32Array(await (await fetch(`stages/${name}.f32`)).arrayBuffer());
-  const S = ids.length;
-  const pre = await engine.prefill(ids, features, { audioStart: audioAt, audioPadId: P.audio_pad_id, debug: meta.layers });
-  const d = pre.debug;
-  const cols = (x, w, a, b) => { const r = new Float32Array(S * (b - a)); for (let t = 0; t < S; t++) r.set(x.subarray(t * w + a, t * w + b), t * (b - a)); return r; };
-  const sub = (x, y) => x.map((v, i) => v - y[i]);
-  const rows = [];
-  const cmp = async (name, ours, width, ortName = name) => rows.push({ stage: name, ...stat(ours, await ort(ortName), width) });
-  await cmp("embed", d.embed, 2048);
-  for (const L of meta.layers) {
-    const g = (k) => d[`l${L}.${k}`];
-    await cmp(`l${L}.rms1`, g("rms1"), 2048);
-    await cmp(`l${L}.q`, cols(g("qkv"), 4096, 0, 2048), 2048);
-    await cmp(`l${L}.k`, cols(g("qkv"), 4096, 2048, 3072), 1024);
-    await cmp(`l${L}.v`, cols(g("qkv"), 4096, 3072, 4096), 1024);
-    await cmp(`l${L}.qrope`, g("qrope"), 2048);
-    await cmp(`l${L}.krope`, g("kcache"), 1024);
-    await cmp(`l${L}.kcache`, g("kcache"), 1024);
-    await cmp(`l${L}.vcache`, g("vcache"), 1024);
-    await cmp(`l${L}.attn`, g("attn"), 2048);
-    await cmp(`l${L}.oproj`, sub(g("resid1"), g("in")), 2048);
-    await cmp(`l${L}.resid1`, g("resid1"), 2048);
-    await cmp(`l${L}.rms2`, g("rms2"), 2048);
-    await cmp(`l${L}.act`, g("act"), 6144);
-    await cmp(`l${L}.down`, sub(g("resid2"), g("resid1")), 2048);
-    await cmp(`l${L}.resid2`, g("resid2"), 2048);
-  }
-  const V = 151936;
-  const argmax = (a) => { let bi = 0; for (let i = 1; i < a.length; i++) if (a[i] > a[bi]) bi = i; return bi; };
-  const lg = new Float32Array(await engine.read(pre.logits, V * 4));
-  await cmp("logits.last", lg, V, "logits");
-  rows.at(-1).argmax = [argmax(lg), ortTokens[0]];
-  // Decode steps teacher-forced with ORT's tokens over our own prefill KV.
-  for (let i = 0; i < meta.steps; i++) {
-    engine.start(ortTokens[i], S + i, 64);
-    const ce = device.createCommandEncoder(); engine.encodeSteps(ce, 1); device.queue.submit([ce.finish()]);
-    const l = new Float32Array(await engine.read(engine.bufs.logits, V * 4));
-    await cmp(`step${i}.logits`, l, V);
-    rows.at(-1).argmax = [argmax(l), ortTokens[i + 1]];
-  }
-  const firstBad = rows.find((r) => r.bad)?.stage ?? null;
-  return { firstBad, rows };
 }
 
 window.__parity = { done: false };
