@@ -709,7 +709,19 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
     }
     const tEnd = performance.now();
     const hist = slid.length ? textOf(slid) : "";
-    const timing = { melEncMs: tPre - tMel, encMs, prefillMs: r.prefillMs, decodeMs: tEnd - tPre, totalMs: tEnd - t0, tokens: r.gen.length, prefill: ids.length, ctx: past + ids.length, cached: past, audioTokens: A, slides, shiftMs, pace: m.pace ? { k: pacer.k, prefillK: prefillPacer.k, frameMs: +pacer.frameMs.toFixed(1), frames: pacer.frames } : null };
+    const timing = { melEncMs: tPre - tMel, encMs, prefillMs: r.prefillMs, decodeMs: r.decodeMs, totalMs: tEnd - t0, tokens: r.gen.length, prefill: ids.length, ctx: past + ids.length, cached: past, audioTokens: A, slides, shiftMs, pace: m.pace ? { k: pacer.k, prefillK: prefillPacer.k, frameMs: +pacer.frameMs.toFixed(1), frames: pacer.frames } : null };
+    logger.info("hop {took} ms: enc {encMs} ms, prefill {prefill} tok ({forced} forced, {audioTokens} audio, {cached} cached) {prefillMs} ms, decode {tokens} tok {decodeMs} ms, slides {slides}", {
+        took: Math.round(timing.totalMs),
+        encMs: Math.round(encMs),
+        prefill: ids.length,
+        forced: forced.length,
+        audioTokens: A,
+        cached: past,
+        prefillMs: Math.round(r.prefillMs),
+        tokens: r.gen.length,
+        decodeMs: Math.round(r.decodeMs),
+        slides,
+    });
     const prevLen = st.tokens.length;
     st.tokens = trimLoop(seen, [...forced, ...r.gen]);
     const bytes = bytesOf(st.tokens);
