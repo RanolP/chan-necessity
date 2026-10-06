@@ -9,6 +9,13 @@ const res = (window.__res = { vad, phase: "load", hops: [], log: [] });
 const note = (m) => res.log.push(`[${(performance.now() / 1000).toFixed(1)}s] ${m}`);
 
 async function run() {
+    const adapter = await navigator.gpu?.requestAdapter();
+    if (!adapter) throw new Error("no WebGPU adapter");
+    // A software adapter (SwiftShader, lavapipe) runs the model on the CPU: minutes per load,
+    // every core pegged, and timings that say nothing about the GPU path. Refuse it outright.
+    const gpuId = `${adapter.info.vendor} ${adapter.info.architecture} ${adapter.info.device} ${adapter.info.description}`;
+    if (adapter.info.isFallbackAdapter || /swiftshader|llvmpipe|lavapipe|software/i.test(gpuId))
+        throw new Error(`software WebGPU adapter (${gpuId.trim()}); run on the Windows Chrome GPU over CDP 9333`);
     const meta = await (await fetch("hops.json")).json();
     const pcm = new Float32Array(await (await fetch("hops.f32")).arrayBuffer());
     const w = new Worker("worker.js", { type: "module" });

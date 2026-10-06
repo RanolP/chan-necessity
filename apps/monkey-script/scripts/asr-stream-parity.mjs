@@ -9,10 +9,13 @@
 // confirmed and tentative token ids (the last ROLLBACK = 5 are tentative) and
 // the text the page would display.
 //
-//   node scripts/asr-stream-parity.mjs <hf model dir> <16 kHz mono f32le pcm> [lang]
+//   node scripts/asr-stream-parity.mjs <hf model dir> <16 kHz mono f32le pcm> [lang] [repo@rev] [engine model dir]
 //
-// The model dir is the Hugging Face export the repo/rev below names (1.7B:
-// the in-house engine is built for that export only). Chrome is reached over
+// The model dir is the Hugging Face export repo@rev names, and the engine
+// model dir holds the manifest.json and qknorm.bin engine-dev/tools/convert.py
+// built for it; both default to the 1.7B export the fixtures were frozen
+// from. Another export runs the same hops, but only its displayed text
+// (report.json finalText.ours) means anything against a 1.7B reference. Chrome is reached over
 // CDP at STREAM_PARITY_CDP (default http://127.0.0.1:9444): launch a separate
 // instance with --enable-unsafe-webgpu and its own --user-data-dir. Each run
 // opens and closes its own tab. STREAM_PARITY_RUNS picks the VAD settings to
@@ -25,9 +28,10 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
 
-const [modelDir, pcmPath, lang = "ko"] = process.argv.slice(2).map((x, i) => (i < 2 ? resolve(x) : x));
-if (!modelDir || !pcmPath) throw new Error("usage: node scripts/asr-stream-parity.mjs <hf model dir> <pcm.f32> [lang]");
+const [modelDir, pcmPath, lang = "ko", source = "jiangzhuo9357/Qwen3-ASR-1.7B-ONNX@fcc238dfdc95cdcccaa9a7e2c7f5abc2f94f44a7", engineArg] = process.argv.slice(2).map((x, i) => (i < 2 ? resolve(x) : x));
+if (!modelDir || !pcmPath || !source.includes("@")) throw new Error("usage: node scripts/asr-stream-parity.mjs <hf model dir> <pcm.f32> [lang] [repo@rev] [engine model dir]");
 const here = resolve(import.meta.dirname, "..");
+const engineDir = engineArg ? resolve(engineArg) : join(here, "engine-dev/model");
 const out = join(tmpdir(), "asr-stream-parity");
 mkdirSync(out, { recursive: true });
 const CDP = process.env.STREAM_PARITY_CDP || "http://127.0.0.1:9444";
@@ -39,7 +43,7 @@ const fixture = resolve(import.meta.dirname, `fixtures/asr-stream-parity-${lang}
 const reference = (vad) => JSON.parse(readFileSync(join(fixture, `ort-vad${vad}.json`), "utf8"));
 const MIN_FREE_MIB = Number(process.env.STREAM_PARITY_MIN_FREE_MIB || 3500);
 const SR = 16000, HOP = SR, ROLLBACK = 5, SILENCE_RMS = 0.004;
-const REPO = "jiangzhuo9357/Qwen3-ASR-1.7B-ONNX", REV = "fcc238dfdc95cdcccaa9a7e2c7f5abc2f94f44a7";
+const [REPO, REV] = source.split("@");
 
 // ---- hop schedule: the page's quiet flag and slow-peak gain (index.ts) ----
 const raw = readFileSync(pcmPath);
@@ -92,7 +96,7 @@ const { build } = await import("rolldown");
 writeFileSync(join(out, "index.html"), '<!doctype html><meta charset="utf-8"><title>asr stream parity</title><script type="module" src="driver.js"></script>');
 writeFileSync(join(out, "driver.js"), readFileSync(resolve(import.meta.dirname, "asr-stream-parity.browser.mjs")));
 
-const roots = [["/m/", modelDir], ["/e/", join(here, "engine-dev/model")], ["/", out]];
+const roots = [["/m/", modelDir], ["/e/", engineDir], ["/", out]];
 const types = { ".html": "text/html", ".js": "text/javascript", ".json": "application/json" };
 const server = createServer((q, r) => {
     const url = decodeURIComponent(q.url.split("?")[0]);
