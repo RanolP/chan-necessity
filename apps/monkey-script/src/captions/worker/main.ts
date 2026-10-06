@@ -99,6 +99,20 @@ const FRAME_WAIT_MAX_MS = 100;
 let tickWaiters: ((t?: number) => void)[] = [];
 const pacer = { k: 1, frameMs: 16.7, last: 0, sliceStart: 0, inSlice: 0, frames: 0 };
 const SLICE_SHARE = 0.35;
+// Prefill layers per submit. One layer of a hop's prefill already outlasts
+// SLICE_SHARE of a frame, so the decode pacer would pin prefill to one layer
+// and wait a frame after each of them (~450 ms a hop). A prefill slice grows
+// while its GPU time fits in a frame and shrinks once it passes two.
+const prefillPacer = { k: 3 };
+async function prefillSliceDone() {
+    await device!.queue.onSubmittedWorkDone();
+    const took = performance.now() - pacer.sliceStart;
+    if (took > 2 * pacer.frameMs && prefillPacer.k > 1) prefillPacer.k--;
+    else if (took < pacer.frameMs) prefillPacer.k = Math.min(16, prefillPacer.k + 1);
+    await nextFrame();
+    pacer.sliceStart = performance.now();
+    pacer.inSlice = 1;
+}
 const nextFrame = () =>
     new Promise<void>((resolve) => {
         let settled = false;
@@ -364,14 +378,9 @@ async function prefillPaced(ids: number[], audio: GPUBuffer, audioStart: number,
     stage = "prefill";
     // A whole prefill is ~600 ms of GPU work: as one submit it drops video
     // frames, and the governor answers dropped frames with a 10 s pause.
-    // Paced, it runs layer by layer and the compositor gets the gaps.
-    const betweenLayers = pace
-        ? async () => {
-              await device!.queue.onSubmittedWorkDone();
-              await paced(true);
-          }
-        : undefined;
-    return eng.prefill(ids, audio, { audioStart, audioTokens, audioPadId: model!.cfg.prompt.audio_pad_id, betweenLayers, past });
+    // Paced, it runs a few layers per submit and the compositor gets the gaps.
+    const betweenLayers = pace ? prefillSliceDone : undefined;
+    return eng.prefill(ids, audio, { audioStart, audioTokens, audioPadId: model!.cfg.prompt.audio_pad_id, betweenLayers, layersPerSlice: () => prefillPacer.k, past });
 }
 async function decodeGreedy(ids: number[], audio: GPUBuffer, audioStart: number, audioTokens: number, maxTokens: number, stop: (gen: readonly number[]) => boolean, pace = false, past = 0) {
     const eng = engine!;
@@ -384,7 +393,7 @@ async function decodeGreedy(ids: number[], audio: GPUBuffer, audioStart: number,
     if (!pre.done && cap > 0) {
         stage = "decode";
         await paced(pace, true);
-        out.push(...(await eng.decode(pre.token, pre.position, { cap, owd: true, perSubmit: pace ? 4 : 16 })).tokens);
+        out.push(...(await eng.decode(pre.token, pre.position, { cap, owd: true, perSubmit: pace ? 8 : 16 })).tokens);
     }
     const gen: number[] = [];
     for (const t of out) {
@@ -430,7 +439,7 @@ async function transcribe(pcm: Float32Array, lang: string, maxTokens: number, pa
         prefillMs: r.prefillMs,
         decodeMs: r.decodeMs,
         totalMs: tEnd - t0,
-        pace: pace ? { k: pacer.k, frameMs: +pacer.frameMs.toFixed(1), frames: pacer.frames } : null,
+        pace: pace ? { k: pacer.k, prefillK: prefillPacer.k, frameMs: +pacer.frameMs.toFixed(1), frames: pacer.frames } : null,
     };
 }
 
@@ -700,7 +709,7 @@ async function streamHop(m: StreamMessage): Promise<StreamResult> {
     }
     const tEnd = performance.now();
     const hist = slid.length ? textOf(slid) : "";
-    const timing = { melEncMs: tPre - tMel, encMs, prefillMs: r.prefillMs, decodeMs: tEnd - tPre, totalMs: tEnd - t0, tokens: r.gen.length, prefill: ids.length, ctx: past + ids.length, cached: past, audioTokens: A, slides, shiftMs, pace: m.pace ? { k: pacer.k, frameMs: +pacer.frameMs.toFixed(1), frames: pacer.frames } : null };
+    const timing = { melEncMs: tPre - tMel, encMs, prefillMs: r.prefillMs, decodeMs: tEnd - tPre, totalMs: tEnd - t0, tokens: r.gen.length, prefill: ids.length, ctx: past + ids.length, cached: past, audioTokens: A, slides, shiftMs, pace: m.pace ? { k: pacer.k, prefillK: prefillPacer.k, frameMs: +pacer.frameMs.toFixed(1), frames: pacer.frames } : null };
     const prevLen = st.tokens.length;
     st.tokens = trimLoop(seen, [...forced, ...r.gen]);
     const bytes = bytesOf(st.tokens);
