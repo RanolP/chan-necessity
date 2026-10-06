@@ -37,7 +37,7 @@ async function run() {
         const hop = pcm.slice(i * meta.hopSamples, (i + 1) * meta.hopSamples);
         const r = await ask({ type: "stream", id: i + 1, pcm: hop, lang: meta.lang, gapMs: 0, pace: false, vad, engine: false, reset: i === 0, quiet: h.quiet, maxTokens: meta.maxTokens }, [hop.buffer]);
         if (r.type === "error") throw new Error(`hop ${i}: ${r.stage} ${r.message}`);
-        res.hops.push({ i, quiet: h.quiet, speech: r.speech, speechSec: r.speechSec, decoded: !!r.decoded, final: !!r.final, aborted: !!r.aborted, hist: r.hist ?? "", conf: r.conf ?? null, tent: r.tent ?? null, ids: r.ids ?? null, gen: r.tokens ?? null, prefill: r.prefill ?? null, audioTokens: r.audioTokens ?? null, slidN: r.slidN ?? null, ms: Math.round(r.totalMs ?? 0) });
+        res.hops.push({ i, quiet: h.quiet, speech: r.speech, speechSec: r.speechSec, decoded: !!r.decoded, final: !!r.final, aborted: !!r.aborted, hist: r.hist ?? "", conf: r.conf ?? null, tent: r.tent ?? null, ids: r.ids ?? null, gen: r.tokens ?? null, prefill: r.prefill ?? null, audioTokens: r.audioTokens ?? null, slidN: r.slidN ?? null, cached: r.cached ?? null, ctx: r.ctx ?? null, slides: r.slides ?? null, prefillMs: r.prefillMs == null ? null : Math.round(r.prefillMs), ms: Math.round(r.totalMs ?? 0) });
     }
     w.terminate();
     res.phase = "done";
