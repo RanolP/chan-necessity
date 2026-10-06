@@ -122,6 +122,9 @@ type PlayerHost = HTMLElement & { cbSubWatched?: boolean };
     // player's own gap-skipping micro-seeks stay below it.
     const SEEK_JUMP_SEC = 2;
     const SEEK_FIRST_HOP_SEC = 2.5;
+    // Media chunks last 0.96-1.024 s, so a 1 s hop gated on exactly 1 s of
+    // new audio waited for a second chunk and ran every 2 s.
+    const HOP_SLACK_SEC = 0.1;
     const SILENCE_RMS = 0.004;
     const CLEAR_AFTER_MS = 7000;
     const CACHE_NAME = "chzzkbest-stt-v1";
@@ -925,7 +928,7 @@ registerProcessor('cb-stt-tap', CbSttTap);`;
                     from = Math.max(end - 2, media.chunks.find((c) => c.end > end - 2)?.start ?? end - 2);
                     reset = true;
                 }
-                if (!reset && end - from < hop) return;
+                if (!reset && end - from < hop - HOP_SLACK_SEC) return;
                 state.lastEndMedia = end;
                 pcm = readMedia(from, end);
                 job = { source: "media", end, newSec: end - from, sec: end - from };
