@@ -4,4 +4,3 @@ packages:
 # Dependencies whose install scripts pnpm may run; any other build script is blocked.
 allowBuilds:
   esbuild: true
-  onnxruntime-node: true
