@@ -56,7 +56,6 @@ export interface PaceStats {
     frameMs: number;
     frames: number;
 }
-export type EngineInfo = { on: true; loadMs: number } | { on: false; reason: string };
 
 export interface CapsMessage {
     type: "caps";
@@ -77,14 +76,12 @@ export interface StatusMessage {
 }
 export interface ReadyMessage {
     type: "ready";
-    f16: boolean;
-    engine: EngineInfo;
+    adapter: string;
     downloadMs: number;
-    sessionMs: number;
+    // Weight upload and pipeline creation for the encoder and the decoder.
+    buildMs: number;
     fromNet: number;
     total: number;
-    warmed: number;
-    warmMs: number;
     col?: string;
 }
 // One shape for both decode modes: a streaming hop sets `stream`, a
@@ -98,8 +95,7 @@ export interface ResultMessage {
     totalMs: number;
     aborted?: boolean;
     tokens?: number;
-    via?: "engine" | "ort";
-    engineMs?: number;
+    prefillMs?: number;
     pace?: PaceStats | null;
     decodeMs?: number;
     skipped?: "vad";

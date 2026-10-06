@@ -47,6 +47,24 @@ export interface DecodeTiming {
   emptyPumpSubmits?: number;
   totalMs?: number;
 }
+export interface PrefillOptions {
+  /** First position occupied by the contiguous audio feature splice. */
+  audioStart: number;
+  /** Number of [hidden]-wide rows in a GPUBuffer audio input. Inferred for Float32Array. */
+  audioTokens?: number;
+  /** Optional guard for callers that also know the prompt's audio-pad id. */
+  audioPadId?: number;
+}
+export interface PrefillResult {
+  /** Greedy first token, reduced on the GPU from the final prefill logits. */
+  token: number;
+  /** Position at which decode should start (equal to ids.length). */
+  position: number;
+  /** 1 when the first token is EOS, otherwise 0. */
+  done: number;
+  /** GPU logits buffer for consumers that need the complete first-token row. */
+  logits: GPUBuffer;
+}
 interface Segment {
   off: number;
   len: number;
@@ -71,6 +89,14 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
   };
   const P = {
     embed: await mk("embed", K.embedWGSL(EMB_ROWS)),
+    prefillEmbed: await mk("prefill-embed", K.prefillEmbedWGSL({ rowsPerPart: EMB_ROWS, hidden: H })),
+    prefillRms: await mk("prefill-rms", K.rmsWGSL({ K: H })),
+    prefillQkv: await mk("prefill-qkv", K.gemmWGSL({ K: H, N: 4096, mode: "plain" })),
+    prefillO: await mk("prefill-o", K.gemmWGSL({ K: H, N: H, mode: "resid" })),
+    prefillGu: await mk("prefill-gu", K.gemmWGSL({ K: H, N: I, mode: "silu" })),
+    prefillDown: await mk("prefill-down", K.gemmWGSL({ K: I, N: H, mode: "resid" })),
+    prefillRope: await mk("prefill-rope", K.ropePrefillWGSL({ LMAX, theta: C.rope_theta })),
+    prefillAttn: await mk("prefill-attn", K.attnPrefillWGSL({ LMAX, scale: C.attn_scale_f16 })),
     qkv: await mk("qkv", K.gemvWGSL({ K: H, N: 4096, mode: "plain", norm: true })),
     rope: await mk("rope", K.ropeWGSL({ LMAX, theta: C.rope_theta })),
     attn: await mk("attn", K.attnWGSL({ LMAX, scale: C.attn_scale_f16 })),
@@ -79,6 +105,7 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     down: await mk("down", K.gemvWGSL({ K: I, N: H, mode: "resid", norm: false })),
     lm: await mk("lm", K.gemvWGSL({ K: H, N: LM_HALF, mode: "lm", norm: true })),
     argmax: await mk("argmax", K.argmaxWGSL({ NP, eos: C.eos, LMAX })),
+    prefillArgmax: await mk("prefill-argmax", K.argmaxPrefillWGSL({ NP, eos: C.eos })),
   };
   // ---- weights: one GPU buffer per fused tensor; LM head split by rows into two halves (128 MiB binding cap)
   const T: Record<string, ManifestTensor & { parts: { start: number; len: number; buf: GPUBuffer }[] }> = {};
@@ -118,16 +145,35 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
   const part = buf(NP * 8, S | CS);
   const kvBytes = NL * 8 * LMAX * 128 * 2;
   const kc = buf(kvBytes), vc = buf(kvBytes);
+  const prefillIds = buf(LMAX * 4);
+  const prefillAudio = buf(LMAX * H * 4);
+  const prefillH = buf(LMAX * H * 4, S | CS);
+  const prefillNorm = buf(LMAX * H * 4, S | CS);
+  const prefillQKV = buf(LMAX * 4096 * 4, S | CS);
+  const prefillQ = buf(LMAX * 2048 * 4, S | CS);
+  const prefillA = buf(LMAX * 2048 * 4, S | CS);
+  const prefillAct = buf(LMAX * I * 4, S | CS);
 
   const bg = (p: GPUComputePipeline, group: number, bufs: (GPUBuffer | null)[]) => device.createBindGroup({ layout: p.getBindGroupLayout(group), entries: bufs.map((b, i) => (b == null ? null : { binding: i, resource: { buffer: b } })).filter((e): e is NonNullable<typeof e> => Boolean(e)) });
   const t1 = (n: string, k = 0) => T[n].parts[k].buf;
   const uni = (vals: number[]) => { const b = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | CD }); device.queue.writeBuffer(b, 0, new Uint32Array([...vals, 0, 0, 0, 0].slice(0, 4))); return b; };
+  const prefillTokenU = uni([0]);
+  const prefillEmbedU = uni([0, 0, 0, 0]);
 
   const embedBG = bg(P.embed, 0, [st, h, ...emb, esc]);
-  const layers: { qkv: GPUBindGroup; rope: GPUBindGroup[]; attn: GPUBindGroup[]; o: GPUBindGroup; gu: GPUBindGroup; down: GPUBindGroup }[] = [];
+  const layers: {
+    qkv: GPUBindGroup; rope: GPUBindGroup[]; attn: GPUBindGroup[]; o: GPUBindGroup; gu: GPUBindGroup; down: GPUBindGroup;
+    prefillRms1: GPUBindGroup[]; prefillQkv: GPUBindGroup[]; prefillRope: GPUBindGroup[]; prefillAttn: GPUBindGroup[];
+    prefillO: GPUBindGroup[]; prefillRms2: GPUBindGroup[]; prefillGu: GPUBindGroup[]; prefillDown: GPUBindGroup[]; prefillLayerU: GPUBuffer;
+  }[] = [];
   for (let L = 0; L < NL; L++) {
     const u = uni([L]);
+    const prefillLayerU = uni([L, 0]);
     const gm = (p: GPUComputePipeline, x: GPUBuffer, nw: GPUBuffer | null, tag: string, y: GPUBuffer) => bg(p, 0, [st, x, nw, t1(`l${L}.${tag}.q`), t1(`l${L}.${tag}.s`), t1(`l${L}.${tag}.z`), y]);
+    const pgm = (p: GPUComputePipeline, x: GPUBuffer, tag: string, y: GPUBuffer) => [
+      bg(p, 0, [st, x, null, t1(`l${L}.${tag}.q`), t1(`l${L}.${tag}.s`), t1(`l${L}.${tag}.z`), y]),
+      bg(p, 1, [prefillTokenU]),
+    ];
     layers.push({
       qkv: gm(P.qkv, h, t1(`l${L}.ln1`), "qkv", qkv),
       rope: [bg(P.rope, 0, [st, qkv, t1(`l${L}.qn`), t1(`l${L}.kn`), qo, kc, vc]), bg(P.rope, 1, [u])],
@@ -135,6 +181,15 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
       o: gm(P.o, ao, null, "o", h),
       gu: gm(P.gu, h, t1(`l${L}.ln2`), "gu", act),
       down: gm(P.down, act, null, "down", h),
+      prefillRms1: [bg(P.prefillRms, 0, [st, prefillH, t1(`l${L}.ln1`), prefillNorm]), bg(P.prefillRms, 1, [prefillTokenU])],
+      prefillQkv: pgm(P.prefillQkv, prefillNorm, "qkv", prefillQKV),
+      prefillRope: [bg(P.prefillRope, 0, [st, prefillQKV, t1(`l${L}.qn`), t1(`l${L}.kn`), prefillQ, kc, vc]), bg(P.prefillRope, 1, [prefillLayerU])],
+      prefillAttn: [bg(P.prefillAttn, 0, [st, prefillQ, kc, vc, prefillA]), bg(P.prefillAttn, 1, [prefillLayerU])],
+      prefillO: pgm(P.prefillO, prefillA, "o", prefillH),
+      prefillRms2: [bg(P.prefillRms, 0, [st, prefillH, t1(`l${L}.ln2`), prefillNorm]), bg(P.prefillRms, 1, [prefillTokenU])],
+      prefillGu: pgm(P.prefillGu, prefillNorm, "gu", prefillAct),
+      prefillDown: pgm(P.prefillDown, prefillAct, "down", prefillH),
+      prefillLayerU,
     });
   }
   const lmBG = [0, 1].map((k) => [
@@ -142,10 +197,11 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     bg(P.lm, 1, [uni([k * LM_HALF, k * (LM_HALF / 8)])]),
   ]);
   const argBG = bg(P.argmax, 0, [st, part]);
+  const prefillArgBG = [bg(P.prefillArgmax, 0, [st, part]), bg(P.prefillArgmax, 1, [prefillTokenU])];
   await device.queue.onSubmittedWorkDone();
 
   let dispatches = 0;
-  const go = (pass: GPUComputePassEncoder, p: GPUComputePipeline, groups: GPUBindGroup[], n: number) => { pass.setPipeline(p); groups.forEach((g, i) => pass.setBindGroup(i, g)); pass.dispatchWorkgroups(n); dispatches++; };
+  const go = (pass: GPUComputePassEncoder, p: GPUComputePipeline, groups: GPUBindGroup[], nx: number, ny = 1, nz = 1) => { pass.setPipeline(p); groups.forEach((g, i) => pass.setBindGroup(i, g)); pass.dispatchWorkgroups(nx, ny, nz); dispatches++; };
   // Encodes `steps` full decode steps (or, with nLayers < NL, a truncated debug step without LM head).
   function encodeSteps(enc: GPUCommandEncoder, steps: number, nLayers = NL) {
     const pass = enc.beginComputePass();
@@ -177,6 +233,60 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
       device.queue.writeBuffer(kc, dst, pk.buffer, pk.byteOffset + src, row);
       device.queue.writeBuffer(vc, dst, pv.buffer, pv.byteOffset + src, row);
     }
+  }
+  async function prefill(ids: Int32Array | readonly number[], audioFeatures: GPUBuffer | Float32Array, { audioStart, audioTokens, audioPadId }: PrefillOptions): Promise<PrefillResult> {
+    const Sx = ids.length;
+    if (!Number.isInteger(Sx) || Sx <= 0 || Sx > LMAX) throw new RangeError(`prefill: ids length ${Sx} is outside 1..${LMAX}`);
+    if (!Number.isInteger(audioStart) || audioStart < 0) throw new RangeError(`prefill: invalid audioStart ${audioStart}`);
+    const cpuAudio = audioFeatures instanceof Float32Array;
+    const inferredAudioTokens = cpuAudio ? audioFeatures.length / H : undefined;
+    const An = audioTokens ?? inferredAudioTokens;
+    if (An === undefined || !Number.isInteger(An) || An < 0 || audioStart + An > Sx) throw new RangeError(`prefill: invalid audio span start=${audioStart} tokens=${An} for S=${Sx}`);
+    if (cpuAudio && audioFeatures.length !== An * H) throw new RangeError(`prefill: audioFeatures has ${audioFeatures.length} values, expected ${An * H}`);
+    const idData = Uint32Array.from(ids, (id) => {
+      if (!Number.isInteger(id) || id < 0 || id >= V) throw new RangeError(`prefill: token id ${id} is outside 0..${V - 1}`);
+      return id;
+    });
+    if (audioPadId !== undefined) {
+      for (let i = audioStart; i < audioStart + An; i++) if (idData[i] !== audioPadId) throw new RangeError(`prefill: id at audio position ${i} is ${idData[i]}, expected audioPadId ${audioPadId}`);
+    }
+    const audio = cpuAudio ? prefillAudio : audioFeatures;
+    device.queue.writeBuffer(prefillIds, 0, idData);
+    if (cpuAudio) device.queue.writeBuffer(prefillAudio, 0, audioFeatures.buffer, audioFeatures.byteOffset, audioFeatures.byteLength);
+    device.queue.writeBuffer(prefillTokenU, 0, new Uint32Array([Sx, 0, 0, 0]));
+    device.queue.writeBuffer(prefillEmbedU, 0, new Uint32Array([Sx, audioStart, An, 0]));
+    for (let L = 0; L < NL; L++) device.queue.writeBuffer(layers[L].prefillLayerU, 0, new Uint32Array([L, Sx, 0, 0]));
+    const state = new Uint32Array(16); state[2] = 0; state[3] = 0;
+    device.queue.writeBuffer(st, 0, state);
+
+    const enc = device.createCommandEncoder();
+    const pass = enc.beginComputePass();
+    const embed = [
+      bg(P.prefillEmbed, 0, [st, prefillIds, prefillH, ...emb, esc, audio]),
+      bg(P.prefillEmbed, 1, [prefillEmbedU]),
+    ];
+    go(pass, P.prefillEmbed, embed, Sx * H / 256);
+    for (let L = 0; L < NL; L++) {
+      const l = layers[L];
+      go(pass, P.prefillRms, l.prefillRms1, Sx);
+      go(pass, P.prefillQkv, l.prefillQkv, 4096 / 8, Sx);
+      go(pass, P.prefillRope, l.prefillRope, 32, Sx);
+      go(pass, P.prefillAttn, l.prefillAttn, 16, Sx);
+      go(pass, P.prefillO, l.prefillO, H / 8, Sx);
+      go(pass, P.prefillRms, l.prefillRms2, Sx);
+      go(pass, P.prefillGu, l.prefillGu, I / 8, Sx);
+      go(pass, P.prefillDown, l.prefillDown, H / 8, Sx);
+    }
+    pass.end();
+    enc.copyBufferToBuffer(prefillH, (Sx - 1) * H * 4, h, 0, H * 4);
+    const lm = enc.beginComputePass();
+    go(lm, P.lm, lmBG[0], LM_HALF / 8);
+    go(lm, P.lm, lmBG[1], LM_HALF / 8);
+    go(lm, P.prefillArgmax, prefillArgBG, 1);
+    lm.end();
+    device.queue.submit([enc.finish()]);
+    const got = new Uint32Array(await read(st, 64));
+    return { token: got[0], position: got[1], done: got[2], logits };
   }
   function start(tok0: number, pos: number, cap: number) {
     const s = new Uint32Array(16); s[0] = tok0; s[1] = pos; s[2] = 0; s[3] = 0; s[4] = cap;
@@ -223,7 +333,7 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     return { tokens: Array.from(all.subarray(16, 16 + all[3])), done: all[2], eosStep: all[2] === 1 ? all[5] : -1, timing: t };
   }
 
-  return { config: C, LMAX, encodeSteps, setPrefill, start, decode, read, bufs: { st, h, qkv, qo, ao, act, logits, part, kc, vc }, pump, get dispatches() { return dispatches; } };
+  return { config: C, LMAX, encodeSteps, setPrefill, prefill, start, decode, read, bufs: { st, h, qkv, qo, ao, act, logits, part, kc, vc, prefillH, prefillNorm, prefillQKV, prefillQ, prefillA, prefillAct }, pump, get dispatches() { return dispatches; } };
 }
 
 // Streams `url` once and hands every 4-byte-aligned piece of each segment to `write(seg, offsetInSeg, bytes)`.

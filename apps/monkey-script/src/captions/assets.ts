@@ -2,7 +2,7 @@
 // export: its manifest (tensor layout) and qknorm.bin. They are attached to
 // the chan-necessity GitHub release `models-v1`; the decoder weights and the
 // embeddings it also reads are byte-identical to the Hugging Face files the
-// ORT path already caches, so they are not re-hosted.
+// worker already caches, so they are not re-hosted.
 import { getLogger } from "../shared/logtape.ts";
 import type { EngineAssets } from "./protocol.ts";
 
@@ -41,7 +41,7 @@ async function plainGet(url: string): Promise<ArrayBuffer> {
 }
 
 // Resolves to { manifest, qknorm } ArrayBuffers, or null when they cannot
-// be had; the subtitles then decode on the ORT path, as before.
+// be had; the worker then fails its load, since it has no other decoder.
 export async function loadEngineAssets(cacheName: string, getSetting: (key: string, fallback: string) => unknown): Promise<EngineAssets | null> {
     const override = String(getSetting(KEY_ASSET_BASE, "") || "").trim();
     const base = override || MODEL_ASSET_BASE;
@@ -60,7 +60,7 @@ export async function loadEngineAssets(cacheName: string, getSetting: (key: stri
         }
         return out as EngineAssets;
     } catch (error) {
-        logger.warn("engine assets unavailable, decoding on the ORT path: {base}", { base, error });
+        logger.warn("engine assets unavailable, captions cannot load: {base}", { base, error });
         return null;
     }
 }
