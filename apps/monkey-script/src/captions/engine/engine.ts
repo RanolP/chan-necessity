@@ -309,26 +309,27 @@ export async function createEngine(device: GPUDevice, opt: EngineOptions) {
     ];
     go(pass, P.prefillEmbed, embed, Sx * H / 256);
     if (debug) tap("embed", prefillH, Sx * H * 4);
+    const gemmTiles = Math.ceil(Sx / K.GEMM_TOKENS);
     for (let L = 0; L < NL; L++) {
       const l = layers[L];
       const t = tapped.has(L) ? (name: string, src: GPUBuffer, width: number) => tap(`l${L}.${name}`, src, Sx * width * 4) : (_n: string, _s: GPUBuffer, _w: number) => {};
       t("in", prefillH, H);
       go(pass, P.prefillRms, l.prefillRms1, Sx);
       t("rms1", prefillNorm, H);
-      go(pass, P.prefillQkv, l.prefillQkv, 4096 / 8, Sx);
+      go(pass, P.prefillQkv, l.prefillQkv, 4096 / 8, gemmTiles);
       t("qkv", prefillQKV, 4096);
       go(pass, P.prefillRope, l.prefillRope, 32, Sx);
       t("qrope", prefillQ, 2048);
       if (tapped.has(L)) { tap(`l${L}.kcache`, kc, kvLayer, L * kvLayer, true); tap(`l${L}.vcache`, vc, kvLayer, L * kvLayer, true); }
       go(pass, P.prefillAttn, l.prefillAttn, 16, Sx);
       t("attn", prefillA, 2048);
-      go(pass, P.prefillO, l.prefillO, H / 8, Sx);
+      go(pass, P.prefillO, l.prefillO, H / 8, gemmTiles);
       t("resid1", prefillH, H);
       go(pass, P.prefillRms, l.prefillRms2, Sx);
       t("rms2", prefillNorm, H);
-      go(pass, P.prefillGu, l.prefillGu, I / 8, Sx);
+      go(pass, P.prefillGu, l.prefillGu, I / 8, gemmTiles);
       t("act", prefillAct, I);
-      go(pass, P.prefillDown, l.prefillDown, H / 8, Sx);
+      go(pass, P.prefillDown, l.prefillDown, H / 8, gemmTiles);
       t("resid2", prefillH, H);
       if (betweenLayers && L < NL - 1 && ++inSlice >= (layersPerSlice?.() ?? 1)) {
         inSlice = 0;

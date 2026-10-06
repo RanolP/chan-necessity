@@ -178,62 +178,109 @@ fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) l
 }`;
 }
 
-// Batched q4 GEMM. One workgroup computes eight output rows for one token;
-// the q4 weights are indexed identically to gemvWGSL, so the manifest needs
-// no second layout or conversion path.
+// Batched q4 GEMM. One workgroup computes eight output rows for GEMM_TOKENS
+// tokens, so each q4 block is fetched and unpacked once and applied to every
+// token in the tile (one token per workgroup would re-read the whole
+// weight set for each prompt token). The q4 weights are indexed identically
+// to gemvWGSL, so the manifest needs no second layout or conversion path.
+//
+// Each (row, token) dot product keeps gemvWGSL's summation order: lane l
+// sums blocks l, l + 32, ... ascending, each block's dq/sx run element by
+// element, and the 32 lanes reduce as the same tree. Activations are staged
+// per 1024-element chunk (one block per lane) in workgroup memory as packed
+// f16: every GEMM input is an f16-rounded op boundary under prec.r16, so
+// the packing is lossless. The slot swizzle keeps the lanes' 16-byte reads
+// of one w on distinct banks. Six tokens keep the workgroup under the
+// default 16 KiB of workgroup storage.
+export const GEMM_TOKENS = 6;
 export type GemmMode = "plain" | "resid" | "silu";
 export function gemmWGSL({ K, N, mode }: { K: number; N: number; mode: GemmMode }): string {
-  const NB = K / 32, ZB = Math.ceil(NB / 2), tiles = Math.ceil(N / 8);
+  if (!prec.r16) throw new Error("gemmWGSL stages activations as f16 and is exact only with prec.r16");
+  const NB = K / 32, ZB = Math.ceil(NB / 2), TT = GEMM_TOKENS;
+  if (NB % 32) throw new Error(`gemmWGSL: K ${K} is not a multiple of 1024`);
   const two = mode === "silu";
+  const out = (v: string) => mode === "plain" ? `y[o] = ${v};` : mode === "resid" ? `y[o] = ${q(`y[o] + ${v}`)};` : `let g = ${v}; let sg = ${q("g * " + q("1.0 / (1.0 + exp(-g))"))}; y[o] = ${q("sg * " + q("red2[li]"))};`;
   return head + `
-@group(0) @binding(1) var<storage, read> x: array<f32>;
+@group(0) @binding(1) var<storage, read> x: array<vec4<f32>>;
 @group(0) @binding(3) var<storage, read> wq: array<vec4<u32>>;
 @group(0) @binding(4) var<storage, read> ws: array<u32>;
 @group(0) @binding(5) var<storage, read> wz: array<u32>;
 @group(0) @binding(6) var<storage, read_write> y: array<f32>;
 struct U { tokens: u32, pad0: u32, pad1: u32, pad2: u32 }
 @group(1) @binding(0) var<uniform> u: U;
+const TT = ${TT}u;
+var<workgroup> xs: array<vec4<u32>, ${TT * 128}>;
 var<workgroup> red: array<f32, 256>;
-var<workgroup> red2: array<f32, 256>;
+${two ? "var<workgroup> red2: array<f32, 256>;" : ""}
 fn scale(i: u32) -> f32 { return f16lo(ws[i >> 1u], i & 1u); }
 fn zp(row: u32, b: u32) -> f32 {
   let byte = row * ${ZB}u + (b >> 1u);
   let v = (wz[byte >> 2u] >> ((byte & 3u) * 8u)) & 255u;
   return f32((v >> ((b & 1u) * 4u)) & 15u);
 }
-fn qdot(token: u32, row: u32, lane: u32) -> f32 {
-  var out = 0.0;
-  for (var b = lane; b < ${NB}u; b += 32u) {
-    let qw = wq[row * ${NB}u + b];
-    var dq = 0.0; var sx = 0.0;
-    for (var w = 0u; w < 4u; w++) {
-      let q = qw[w];
-      for (var j = 0u; j < 8u; j++) {
-        let xv = x[token * ${K}u + b * 32u + w * 8u + j];
-        dq += f32((q >> (4u * j)) & 15u) * xv; sx += xv;
-      }
-    }
-    out += scale(row * ${NB}u + b) * (dq - zp(row, b) * sx);
-  }
-  return out;
-}
+fn slot(lane: u32, w: u32) -> u32 { return lane * 4u + (w ^ ((lane >> 1u) & 3u)); }
 @compute @workgroup_size(256)
 fn main(@builtin(workgroup_id) wg: vec3<u32>, @builtin(local_invocation_index) li: u32) {
   if (halted(li)) { return; }
-  let tile = wg.x; let token = wg.y;
-  let lane = li & 31u; let slot = li >> 5u; let r = tile * 8u + slot;
-  var acc = 0.0; var acc2 = 0.0;
-  if (r < ${N}u && token < u.tokens) {
-    acc = qdot(token, r, lane); ${two ? `acc2 = qdot(token, r + ${N}u, lane);` : ""}
-  }
-  red[li] = acc; red2[li] = acc2; workgroupBarrier();
-  for (var s = 16u; s > 0u; s >>= 1u) {
-    if (lane < s) { red[li] += red[li + s]; red2[li] += red2[li + s]; }
+  let t0 = wg.y * TT;
+  let lane = li & 31u; let r = wg.x * 8u + (li >> 5u);
+  let live = r < ${N}u;
+  var acc: array<f32, ${TT}>;
+  ${two ? `var acc2: array<f32, ${TT}>;` : ""}
+  for (var c = 0u; c < ${NB / 32}u; c++) {
     workgroupBarrier();
+    for (var i = li; i < TT * 128u; i += 256u) {
+      let t = i / 128u; let s = i % 128u; let tok = t0 + t;
+      var v = vec4<u32>(0u);
+      if (tok < u.tokens) {
+        let e = (tok * ${K}u + c * 1024u + s * 8u) / 4u;
+        let a = x[e]; let b = x[e + 1u];
+        v = vec4<u32>(pack2x16float(a.xy), pack2x16float(a.zw), pack2x16float(b.xy), pack2x16float(b.zw));
+      }
+      xs[t * 128u + slot(s >> 2u, s & 3u)] = v;
+    }
+    workgroupBarrier();
+    if (live) {
+      let b = c * 32u + lane;
+      let qa = wq[r * ${NB}u + b];
+      ${two ? `let qb = wq[(r + ${N}u) * ${NB}u + b];` : ""}
+      var dq: array<f32, ${TT}>; var sx: array<f32, ${TT}>;
+      ${two ? `var dq2: array<f32, ${TT}>;` : ""}
+      for (var w = 0u; w < 4u; w++) {
+        let sl = slot(lane, w);
+        var xr: array<vec4<u32>, ${TT}>;
+        for (var t = 0u; t < TT; t++) { xr[t] = xs[t * 128u + sl]; }
+        for (var j = 0u; j < 8u; j++) {
+          let qv = f32((qa[w] >> (4u * j)) & 15u);
+          ${two ? "let qv2 = f32((qb[w] >> (4u * j)) & 15u);" : ""}
+          for (var t = 0u; t < TT; t++) {
+            let xv = unpack2x16float(xr[t][j >> 1u])[j & 1u];
+            dq[t] += qv * xv; sx[t] += xv;
+            ${two ? "dq2[t] += qv2 * xv;" : ""}
+          }
+        }
+      }
+      let sa = scale(r * ${NB}u + b); let za = zp(r, b);
+      ${two ? `let sb = scale((r + ${N}u) * ${NB}u + b); let zb = zp(r + ${N}u, b);` : ""}
+      for (var t = 0u; t < TT; t++) {
+        acc[t] += sa * (dq[t] - za * sx[t]);
+        ${two ? "acc2[t] += sb * (dq2[t] - zb * sx[t]);" : ""}
+      }
+    }
   }
-  if (lane == 0u && r < ${N}u && token < u.tokens) {
-    let v = ${q("red[li]")};
-    ${mode === "plain" ? `y[token * ${N}u + r] = v;` : mode === "resid" ? `y[token * ${N}u + r] = ${q(`y[token * ${N}u + r] + v`)};` : `let g = v; let sg = ${q("g * " + q("1.0 / (1.0 + exp(-g))"))}; y[token * ${N}u + r] = ${q("sg * " + q("red2[li]"))};`}
+  for (var t = 0u; t < TT; t++) {
+    workgroupBarrier();
+    red[li] = acc[t]; ${two ? "red2[li] = acc2[t];" : ""}
+    workgroupBarrier();
+    for (var s = 16u; s > 0u; s >>= 1u) {
+      if (lane < s) { red[li] += red[li + s]; ${two ? "red2[li] += red2[li + s];" : ""} }
+      workgroupBarrier();
+    }
+    let tok = t0 + t;
+    if (lane == 0u && live && tok < u.tokens) {
+      let o = tok * ${N}u + r;
+      ${out(q("red[li]"))}
+    }
   }
 }`;
 }
