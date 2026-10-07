@@ -117,14 +117,14 @@ const logger = getLogger(["split-view"]);
     function addStyle(css: string) {
         const style = document.createElement("style");
         style.textContent = css;
-        const parent = document.head ?? document.documentElement;
-        if (parent) return parent.append(style);
-        // At document-start the script can run before <html> exists.
+        if (document.head) return document.head.append(style);
+        // At document-start <head> may not exist yet. A style parked on <html>
+        // meanwhile gets dropped once Chzzk's page loads, so wait for <head>.
         new MutationObserver((_, observer) => {
-            if (!document.documentElement) return;
+            if (!document.head) return;
             observer.disconnect();
-            (document.head ?? document.documentElement).append(style);
-        }).observe(document, { childList: true });
+            document.head.append(style);
+        }).observe(document, { childList: true, subtree: true });
     }
 
     // ---- inside a column frame -----------------------------------------
