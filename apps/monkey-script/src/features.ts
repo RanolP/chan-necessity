@@ -10,3 +10,4 @@ import "./shared/audio.ts";
 import "./sound-panning/index.ts";
 import "./captions/index.ts";
 import "./split-view/index.ts";
+import "./split-view/ambient-light.ts";
