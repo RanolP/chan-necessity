@@ -1,6 +1,5 @@
 import { getLogger } from "../shared/logtape.ts";
 import { cbSplit } from "../shared/split-context.ts";
-import { registerPlayerButton } from "../shared/player-bar.ts";
 
 type Pos = "L" | "C" | "R";
 interface MenuAction {
@@ -13,6 +12,7 @@ interface SplitStats {
 }
 interface SplitApi {
     gesture(col: string | null): void;
+    navigated(col: string, href: string): void;
     stats(): SplitStats;
     set(cols: string[]): void;
     menuActions(cols: string[], id: string): MenuAction[];
@@ -69,6 +69,7 @@ interface Column {
     name: HTMLAnchorElement;
     live: HTMLSpanElement;
     stt: HTMLSpanElement;
+    close: HTMLButtonElement;
 }
 interface OpenMenu {
     el: HTMLDivElement;
@@ -80,14 +81,15 @@ interface OpenMenu {
 const logger = getLogger(["split-view"]);
 
 // ---- 스플릿 뷰: 최대 세 채널을 칸으로 나눠 보기 ---------------------------
-// /cbsplit (a path Chzzk answers with its own shell) becomes the split page:
-// Chzzk's header and sidebar stay, and a grid over #layout-body holds one
-// same-origin /live/<id> iframe per column. The script runs again inside
-// each frame (see cbSplit at the top): the frame restyles itself to video
-// over chat, takes its pan range from its position (L -1..0 starting at -1,
-// C -0.5..0.5 starting at 0, R 0..1 starting at +1; the column's slider
-// moves freely inside it until the position changes), and only
-// the leftmost column may run subtitles, through the top page's one model.
+// A top-level live page becomes the split page: Chzzk boots its own shell at
+// /cbsplit (see the boot below), its header and sidebar stay, and a grid
+// over #layout-body holds one same-origin /live/<id> iframe per column. The
+// address names the columns: /live/<id1>?cb-split=<id2>,<id3>. The script
+// runs again inside each frame (see cbSplit at the top): the frame restyles
+// itself to the player and its chat, takes its pan range from its position
+// (L -1..0 starting at -1, C -0.5..0.5 starting at 0, R 0..1 starting at
+// +1; the column's slider moves freely inside it until the position
+// changes), and only the leftmost column may run subtitles, through the top page's one model.
 // Columns are reordered with CSS order, never by moving nodes, because a
 // moved iframe reloads.
 (() => {
@@ -97,6 +99,8 @@ const logger = getLogger(["split-view"]);
     const ID_RE = /([0-9a-f]{32})/i;
     const KEY_LAYOUT = "split.layout";
     const MAX = 3;
+    const FRAME_WIDE = 900;
+    const SPLIT_PARAM = "cb-split";
     const POS: Record<number, Pos[]> = { 1: ["C"], 2: ["L", "R"], 3: ["L", "C", "R"] };
     const PAN = { L: { min: -1, max: 0, def: -1 }, C: { min: -0.5, max: 0.5, def: 0 }, R: { min: 0, max: 1, def: 1 } };
     function writePan(frame: HTMLIFrameElement, p: Pos) {
@@ -109,11 +113,6 @@ const logger = getLogger(["split-view"]);
     const currentId = () => location.pathname.match(LIVE_RE)?.[1]?.toLowerCase() ?? null;
     const ICON =
         '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg>';
-
-    // The player bar sizes and centers only .pzp-ui-icon__svg on a 36x36
-    // box; the same drawing, padded onto that box.
-    const BAR_ICON =
-        '<svg width="36" height="36" viewBox="-6 -6 36 36" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" class="pzp-ui-icon__svg"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg>';
 
     function addStyle(css: string) {
         const style = document.createElement("style");
@@ -131,8 +130,10 @@ const logger = getLogger(["split-view"]);
     // ---- inside a column frame -----------------------------------------
     if (cbSplit.frame) {
         // Chzzk keeps its 950px desktop layout at any width, so the frame
-        // restyles it: no header or sidebar, the player alone from <main>,
-        // and the chat panel under it filling the rest.
+        // restyles it: no header or sidebar and the player alone from
+        // <main>. A narrow frame puts the chat panel under the player; a wide
+        // one keeps Chzzk's chat column (353px) beside it, which from
+        // FRAME_WIDE on still leaves the player over 540px wide.
         addStyle(`
             html, body { min-width: 0 !important; overflow: hidden !important; }
             #header, #sidebar { display: none !important; }
@@ -152,7 +153,30 @@ const logger = getLogger(["split-view"]);
                 position: relative !important; flex: 1 1 auto !important; width: 100% !important; max-width: none !important;
                 height: auto !important; min-height: 0 !important; top: auto !important; right: auto !important; border-left: 0 !important;
             }
+            @media (min-width: ${FRAME_WIDE}px) {
+                #layout-body > section > div { flex-direction: row !important; }
+                #layout-body > section > div > main {
+                    flex: 1 1 0 !important; height: 100% !important; display: flex !important; flex-direction: column !important;
+                    justify-content: center !important; background: #000 !important;
+                }
+                #layout-body main > :first-child { width: min(100%, calc(100vh * 16 / 9)) !important; margin: 0 auto !important; }
+                #aside-chatting { flex: none !important; width: 353px !important; height: 100% !important; }
+            }
         `);
+        // Chzzk links inside the frame (a channel name in chat, a raid) move
+        // it off its column; the host turns that into a column change or a
+        // top-level navigation.
+        const own = `/live/${cbSplit.col}`;
+        let reported = "";
+        setInterval(() => {
+            if (location.pathname.toLowerCase().startsWith(own) || location.href === reported) return;
+            reported = location.href;
+            try {
+                window.top!.ChzzkBestSplit?.navigated(cbSplit.col!, location.href);
+            } catch (error) {
+                logger.error`navigation report failed ${cbSplit.col} ${location.href} ${error}`;
+            }
+        }, 500);
         // A click in one frame activates only that frame and the top page,
         // not its sibling columns; the top page re-dispatches it so every
         // column's audio context can start from the same gesture.
@@ -169,6 +193,85 @@ const logger = getLogger(["split-view"]);
         return;
     }
     if (window.top !== window) return;
+
+    function colsFromUrl(url: URL | Location): string[] {
+        if (url.pathname === cbSplit.HOST_PATH) return loadLayout();
+        const first = url.pathname.match(LIVE_RE)?.[1];
+        if (!first) return [];
+        const rest = new URLSearchParams(url.search).get(SPLIT_PARAM)?.split(",") ?? [];
+        return [...new Set([first, ...rest].map((id) => id.trim().toLowerCase()).filter((id) => /^[0-9a-f]{32}$/.test(id)))].slice(0, MAX);
+    }
+    const splitUrl = (cols: string[]) => (cols.length ? `/live/${cols[0]}${cols.length > 1 ? `?${SPLIT_PARAM}=${cols.slice(1).join(",")}` : ""}` : cbSplit.HOST_PATH);
+    const here = () => location.pathname + location.search;
+
+    // ---- booting a live page as the split host ---------------------------
+    // Chzzk's router reads the address once at boot, then only on its own
+    // navigations and popstate. Booted at /cbsplit it renders just the
+    // header and sidebar; once #layout-body exists the real address comes
+    // back through replaceState, keeping the router's history state.
+    const rawPush = history.pushState.bind(history);
+    const rawReplace = history.replaceState.bind(history);
+    const boot = { active: cbSplit.isHost(), ready: false };
+    if (boot.active) {
+        const url = location.pathname === cbSplit.HOST_PATH ? splitUrl(loadLayout()) : location.pathname + location.search + location.hash;
+        rawReplace(history.state, "", cbSplit.HOST_PATH);
+        const restore = () => {
+            if (!document.getElementById("layout-body")) return false;
+            rawReplace(history.state, "", url);
+            boot.ready = true;
+            logger.info`booted the shell for ${url}`;
+            return true;
+        };
+        new MutationObserver((_, observer) => restore() && observer.disconnect()).observe(document, { childList: true, subtree: true });
+    }
+    // A live page the router reaches by itself would render a player in
+    // the top page, so it loads afresh and boots as a host instead. Not
+    // while a boot is still pending: a boot that never lands cannot loop.
+    for (const [name, raw, go] of [
+        ["pushState", rawPush, (href: string) => location.assign(href)],
+        ["replaceState", rawReplace, (href: string) => location.replace(href)],
+    ] as const) {
+        history[name] = (state: unknown, unused: string, url?: string | URL | null) => {
+            if (url != null && (!boot.active || boot.ready)) {
+                const next = new URL(url, location.href);
+                // The router still believes it sits at /cbsplit.
+                if (boot.ready && next.pathname === cbSplit.HOST_PATH) return raw(state, unused, here());
+                if (next.origin === location.origin && LIVE_RE.test(next.pathname) && next.pathname + next.search !== here()) {
+                    logger.info`router ${name} ${next.href}: reloading as a split host`;
+                    return go(next.href);
+                }
+            }
+            return raw(state, unused, url);
+        };
+    }
+    // Back and forward between split addresses change columns in place; the
+    // router would render a player page for them.
+    window.addEventListener(
+        "popstate",
+        (event) => {
+            if (!boot.ready || !cbSplit.isHost()) return;
+            event.stopImmediatePropagation();
+            if (host.mounted()) host.set(colsFromUrl(location), "none");
+            else location.reload();
+        },
+        true,
+    );
+    // A live link in the shell (sidebar, search, header) opens as columns
+    // without leaving the page; modified clicks and new tabs stay native.
+    window.addEventListener(
+        "click",
+        (event) => {
+            if (!host.mounted() || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            const a = (event.target as Element | null)?.closest?.<HTMLAnchorElement>("a[href]");
+            if (!a || (a.target && a.target !== "_self")) return;
+            const url = new URL(a.href);
+            if (url.origin !== location.origin || !LIVE_RE.test(url.pathname)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            host.set(colsFromUrl(url));
+        },
+        true,
+    );
 
     function loadLayout(): string[] {
         try {
@@ -282,8 +385,8 @@ const logger = getLogger(["split-view"]);
         .cb-split-btn:hover:not(:disabled) { filter: brightness(1.15); }
         .cb-split-btn:disabled { opacity: .4; cursor: default; }
         .cb-split-btn--primary { background: var(--cbs-accent); color: var(--cbs-accent-ink); }
-        .cb-split-grid { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 8px; }
-        .cb-split-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; background: var(--cbs-panel); border: 1px solid var(--cbs-line); border-radius: 10px; overflow: hidden; }
+        .cb-split-grid { flex: 1; min-height: 0; display: flex; gap: 8px; padding: 8px; overflow-x: auto; scroll-snap-type: x mandatory; }
+        .cb-split-col { flex: 1 1 0; min-width: min(100%, 320px); scroll-snap-align: start; display: flex; flex-direction: column; background: var(--cbs-panel); border: 1px solid var(--cbs-line); border-radius: 10px; overflow: hidden; }
         .cb-split-head { flex: none; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 6px 0 8px; border-bottom: 1px solid var(--cbs-line); }
         .cb-split-pos { flex: none; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--cbs-raised); color: var(--cbs-sub); }
         .cb-split-avatar { flex: none; width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: var(--cbs-raised); }
@@ -346,11 +449,13 @@ const logger = getLogger(["split-view"]);
         let grid: HTMLDivElement | null = null;
         let countEl: HTMLSpanElement | null = null;
         let addBtn: HTMLButtonElement | null = null;
+        let exitBtn: HTMLButtonElement | null = null;
         let emptyEl: HTMLDivElement | null = null;
         const columns = new Map<string, Column>(); // id -> { id, el, body, frame, poll, ... }
 
         function mount() {
-            cols = loadLayout();
+            cols = colsFromUrl(location);
+            if (splitUrl(cols) !== here()) rawReplace(history.state, "", splitUrl(cols));
             root = el("div", "cb-split-root");
             const bar = el("div", "cb-split-bar");
             const title = el("div", "cb-split-title");
@@ -361,11 +466,11 @@ const logger = getLogger(["split-view"]);
             addBtn = el("button", "cb-split-btn cb-split-btn--primary", "+ 채널 추가");
             addBtn.type = "button";
             addBtn.addEventListener("click", openDialog);
-            const exit = el("button", "cb-split-btn", "나가기");
-            exit.type = "button";
-            exit.title = "왼쪽 칸 채널을 일반 화면으로 열어요";
-            exit.addEventListener("click", () => location.assign(cols[0] ? `/live/${cols[0]}` : "/"));
-            bar.append(title, el("div", "cb-split-spacer"), addBtn, exit);
+            exitBtn = el("button", "cb-split-btn", "나가기");
+            exitBtn.type = "button";
+            exitBtn.title = "왼쪽 칸만 남겨요";
+            exitBtn.addEventListener("click", () => set(cols.slice(0, 1)));
+            bar.append(title, el("div", "cb-split-spacer"), addBtn, exitBtn);
             grid = el("div", "cb-split-grid");
             emptyEl = el("div", "cb-split-empty");
             emptyEl.append(el("div", "", "보고 싶은 채널을 최대 세 개까지 추가하세요."));
@@ -376,7 +481,6 @@ const logger = getLogger(["split-view"]);
             root.append(bar, grid, emptyEl);
             document.body.append(root);
             document.documentElement.classList.add("cb-split-on");
-            document.title = "스플릿 뷰 - CHZZK";
             place();
             render();
             logger.info`mounted ${cols}`;
@@ -398,10 +502,26 @@ const logger = getLogger(["split-view"]);
             root.style.top = `${top}px`;
             root.style.left = `${left}px`;
         }
-        function set(next: string[]) {
+        // Every change is a history entry unless it came from one.
+        function set(next: string[], entry: "push" | "none" = "push") {
             cols = [...new Set(next)].slice(0, MAX);
             saveLayout(cols);
+            if (entry === "push" && splitUrl(cols) !== here()) rawPush(history.state, "", splitUrl(cols));
             render();
+        }
+        function retitle() {
+            const names = cols.map((id) => columns.get(id)?.name.textContent ?? id.slice(0, 8));
+            document.title = `${names.length ? names.join(" · ") : "스플릿 뷰"} - CHZZK`;
+        }
+        // A column frame left its channel: another channel takes its
+        // column, anything else is a page for the whole tab.
+        function navigated(col: string, href: string) {
+            if (!cols.includes(col)) return;
+            const url = new URL(href, location.href);
+            const id = url.origin === location.origin ? url.pathname.match(LIVE_RE)?.[1]?.toLowerCase() : undefined;
+            logger.info`column ${col} went to ${href}`;
+            if (id) return set(cols.map((x) => (x === col ? id : x)));
+            location.assign(url.href);
         }
         function render() {
             if (!root) return;
@@ -415,10 +535,13 @@ const logger = getLogger(["split-view"]);
                 c.pos.textContent = p;
                 c.pos.title = { L: "왼쪽 귀", C: "가운데", R: "오른쪽 귀" }[p];
                 c.stt.hidden = i !== 0;
+                c.close.hidden = cols.length < 2;
                 if (c.frame) syncFrame(c, p, i === 0);
             });
             countEl!.textContent = `${cols.length}/${MAX}`;
             addBtn!.disabled = cols.length >= MAX;
+            exitBtn!.hidden = cols.length < 2;
+            retitle();
             grid!.hidden = cols.length === 0;
             emptyEl!.hidden = cols.length > 0;
         }
@@ -449,12 +572,12 @@ const logger = getLogger(["split-view"]);
             c.live = el("span", "cb-split-tag", "확인 중");
             c.stt = el("span", "cb-split-tag cb-split-tag--stt", "자막");
             c.stt.title = "실시간 자막은 왼쪽 칸에서 돌아요";
-            const close = el("button", "cb-split-icon", "×");
-            close.type = "button";
-            close.title = "칸 닫기";
-            close.setAttribute("aria-label", "칸 닫기");
-            close.addEventListener("click", () => set(cols.filter((x) => x !== id)));
-            head.append(c.pos, c.avatar, c.name, c.live, c.stt, close);
+            c.close = el("button", "cb-split-icon", "×");
+            c.close.type = "button";
+            c.close.title = "칸 닫기";
+            c.close.setAttribute("aria-label", "칸 닫기");
+            c.close.addEventListener("click", () => set(cols.filter((x) => x !== id)));
+            head.append(c.pos, c.avatar, c.name, c.live, c.stt, c.close);
             c.el.append(head, c.body);
             columns.set(id, c);
             grid!.append(c.el);
@@ -465,6 +588,7 @@ const logger = getLogger(["split-view"]);
             const info = await channelInfo(c.id, 0);
             if (columns.get(c.id) !== c) return;
             c.name.textContent = info.name;
+            retitle();
             if (info.image) c.avatar.src = info.image;
             if (!info.exists) return offline(c, "존재하지 않는 채널이에요", "주소나 ID를 다시 확인해 주세요.", false);
             if (info.live === false) return offline(c, "오프라인", "방송이 시작되면 이 칸에서 자동으로 열려요.", true, info);
@@ -637,6 +761,7 @@ const logger = getLogger(["split-view"]);
             place,
             set,
             gesture,
+            navigated,
             mounted: () => !!root,
             cols: () => [...cols],
             stats: () => ({ cols: [...cols], frames: [...columns.values()].map((c) => ({ id: c.id, pos: c.el.dataset.pos, live: !!c.frame, pan: c.frame?.dataset.cbPan, stt: c.frame?.dataset.cbStt })) }),
@@ -653,10 +778,8 @@ const logger = getLogger(["split-view"]);
     }
     function commit(where: "host" | "live" | "other", cols: string[]) {
         if (where === "host") return host.set(cols);
-        // On a single live page "swap with C" just changes the channel.
-        if (where === "live" && cols.length === 1) return location.assign(`/live/${cols[0]}`);
         saveLayout(cols);
-        location.assign(cbSplit.HOST_PATH);
+        location.assign(splitUrl(cols));
     }
     function closeMenu() {
         if (!menu) return;
@@ -737,25 +860,10 @@ const logger = getLogger(["split-view"]);
         }
     }
 
-    // ---- entry: a player-bar button on a live page -----------------------
-    registerPlayerButton({
-        className: "cb-split-button",
-        label: "스플릿 뷰",
-        icon: BAR_ICON,
-        order: 10,
-        when: () => currentId() !== null,
-        onClick: () => {
-            const cur = currentId();
-            const saved = loadLayout();
-            saveLayout(cur && !saved.includes(cur) ? [cur] : saved);
-            location.assign(cbSplit.HOST_PATH);
-        },
-    });
-
     function tick() {
         try {
             const isHost = cbSplit.isHost();
-            if (isHost && !host.mounted() && document.body) host.mount();
+            if (isHost && boot.ready && !host.mounted() && document.body) host.mount();
             else if (!isHost && host.mounted()) host.unmount();
             if (isHost) host.place();
             decorateSidebar();
@@ -763,7 +871,7 @@ const logger = getLogger(["split-view"]);
             logger.error`tick failed ${location.href} ${error}`;
         }
     }
-    pageWindow.ChzzkBestSplit = { gesture: (col: string | null) => host.gesture(col), stats: () => host.stats(), set: (cols: string[]) => host.set(cols), menuActions, loadLayout };
+    pageWindow.ChzzkBestSplit = { gesture: (col: string | null) => host.gesture(col), navigated: (col: string, href: string) => host.navigated(col, href), stats: () => host.stats(), set: (cols: string[]) => host.set(cols), menuActions, loadLayout };
     setInterval(tick, 700);
     let scheduled = false;
     new MutationObserver(() => {

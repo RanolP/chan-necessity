@@ -1,4 +1,5 @@
 import { getLogger } from "../shared/logtape.ts";
+import { cbSplit } from "../shared/split-context.ts";
 import { registerPlayerButton } from "../shared/player-bar.ts";
 import { API, fetchLive, forgetPlayerRef, getJson, kstToMs, watchedWallTime, type LiveInfo } from "../shared/broadcast-time.ts";
 
@@ -430,7 +431,8 @@ interface Entry {
     }
 
     function onRoute() {
-        const liveMatch = location.pathname.match(LIVE_RE);
+        // The split host keeps a live address over a shell with no player.
+        const liveMatch = cbSplit.isHost() ? null : location.pathname.match(LIVE_RE);
         const videoMatch = location.pathname.match(VIDEO_RE);
         const next: Route = liveMatch
             ? { kind: "live", key: liveMatch[1] }

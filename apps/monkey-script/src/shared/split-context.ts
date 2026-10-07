@@ -1,6 +1,7 @@
 // ---- 스플릿 뷰: where this copy of the script runs -----------------------
-// The split page (/cbsplit) hosts up to three /live/<id> iframes, and the
-// script runs again inside each. A column frame learns its place from the
+// A top-level live page (/live/<id>, or the old /cbsplit link) loads as the
+// split host: split-view boots Chzzk's player-less shell there and hosts up
+// to three /live/<id> iframes, and the script runs again inside each. A column frame learns its place from the
 // dataset of its <iframe> element (same origin): cbCol (channel id), cbPan
 // (the position's starting pan), cbPanMin/cbPanMax (the range the column's
 // slider may move in) and cbStt ("1" in the one column that may run
@@ -37,6 +38,7 @@ export interface SplitContext {
 export const cbSplit: SplitContext = (() => {
     "use strict";
     const HOST_PATH = "/cbsplit";
+    const LIVE_RE = /^\/live\/[0-9a-f]{32}/i;
     let el: HTMLElement | null = null;
     try {
         el = window.frameElement as HTMLElement | null;
@@ -44,11 +46,15 @@ export const cbSplit: SplitContext = (() => {
         el = null;
     }
     const frame = !!el?.dataset?.cbCol;
+    const onSplitPath = () => LIVE_RE.test(location.pathname) || location.pathname === HOST_PATH;
+    // Decided at document-start, before split-view rewrites the address to
+    // boot the shell. Leaving for another page through Chzzk's router ends it.
+    const booted = !frame && window.top === window && onSplitPath();
     return {
         HOST_PATH,
         frame,
         col: frame ? (el?.dataset.cbCol ?? null) : null,
-        isHost: () => !frame && window.top === window && location.pathname === HOST_PATH,
+        isHost: () => booted && onSplitPath(),
         panRange: () => {
             if (!frame || !el) return null;
             const num = (v: string | undefined, fallback: number) => {
@@ -59,7 +65,8 @@ export const cbSplit: SplitContext = (() => {
             const max = Math.max(min, num(el.dataset.cbPanMax, 1));
             return { min, max, def: Math.max(min, Math.min(max, num(el.dataset.cbPan, 0))) };
         },
-        sttHere: () => !frame || el?.dataset.cbStt === "1",
+        // The host shell has no player; subtitles run in a column frame.
+        sttHere: () => (frame ? el?.dataset.cbStt === "1" : !(booted && onSplitPath())),
         hub: () => {
             try {
                 return window.top?.ChzzkBestSttHub ?? null;

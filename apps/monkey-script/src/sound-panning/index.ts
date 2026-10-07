@@ -122,7 +122,8 @@ declare global {
         syncUi();
     }
 
-    const onPlayerPage = () => LIVE_RE.test(location.pathname) || VIDEO_RE.test(location.pathname);
+    // The split host keeps a live address over a shell with no player.
+    const onPlayerPage = () => !cbSplit.isHost() && (LIVE_RE.test(location.pathname) || VIDEO_RE.test(location.pathname));
     function tick() {
         try {
             if (!onPlayerPage()) return;

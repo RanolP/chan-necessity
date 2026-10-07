@@ -1,4 +1,5 @@
 import { getLogger } from "../shared/logtape.ts";
+import { cbSplit } from "../shared/split-context.ts";
 
 const logger = getLogger(["deny-grid"]);
 
@@ -241,7 +242,7 @@ const logger = getLogger(["deny-grid"]);
 
     function callback() {
         if (document.readyState !== "complete") return;
-        if (!LIVE_URL_RE.test(location.href)) return;
+        if (!LIVE_URL_RE.test(location.href) || cbSplit.isHost()) return;
 
         changeText();
         restoreQuality();
