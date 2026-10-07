@@ -42,7 +42,7 @@ https://ranolp.github.io/chan-necessity/chan-necessity.user.js
 - 플레이어에 북마크 버튼이 생겨요. [북마크](/chan-necessity/features/bookmarks/)를 봐 주세요.
 - 플레이어 버튼 줄과 설정 메뉴에 「실시간 자막」이 생겨요. [실시간 자막](/chan-necessity/features/subtitles/)을 봐 주세요.
 - 플레이어 설정 메뉴에 「좌우 밸런스」 슬라이더가 생겨요. [좌우 밸런스](/chan-necessity/features/split-view/#좌우-밸런스)를 봐 주세요.
-- 플레이어와 사이드바에 「스플릿 뷰」 진입점이 생겨요. [스플릿 뷰](/chan-necessity/features/split-view/)를 봐 주세요.
+- 라이브 페이지가 칸 하나짜리 「스플릿 뷰」로 열리고, 사이드바에 「스플릿 뷰 메뉴」 버튼이 생겨요. [스플릿 뷰](/chan-necessity/features/split-view/)를 봐 주세요.
 - Firefox에서 `/clip-editor`(클립 편집기)를 열 수 있어요. 그 페이지에서만 브라우저를 Chrome 140으로 알려서, 편집기 팝업이 Firefox를 거부하지 않게 해요. 클립 인코딩은 원래대로 서버에서 해요.
 
 ## 문제가 생기면
