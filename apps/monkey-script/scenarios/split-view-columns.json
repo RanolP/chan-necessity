@@ -1,0 +1,204 @@
+[
+ [
+  "set",
+  "viewport",
+  "1600",
+  "900"
+ ],
+ [
+  "open",
+  "https://chzzk.naver.com/live/a96cea2d2c39cec636ba8170c66a0510"
+ ],
+ [
+  "wait",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].length === 1"
+ ],
+ [
+  "wait",
+  "--timeout",
+  "60000",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3)"
+ ],
+ [
+  "wait",
+  "3000"
+ ],
+ [
+  "eval",
+  "(() => {\n  window.__splitDoc = performance.timeOrigin;\n  for (const f of document.querySelectorAll(\".cb-split-body > iframe\")) f.contentWindow.__splitMark ??= f.dataset.cbCol.slice(0, 8);\n  return \"marked\";\n})()\n"
+ ],
+ [
+  "eval",
+  "(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const frames = [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const w = f.contentWindow, d = f.contentDocument, v = d?.querySelector(\"video\");\n    return { col: f.dataset.cbCol.slice(0, 8), mark: w?.__splitMark ?? null, frame: box(f), video: box(v), aside: box(d?.querySelector(\"#aside-chatting\")), t: v ? +v.currentTime.toFixed(1) : null, paused: v?.paused };\n  });\n  return JSON.stringify({\n    url: location.pathname + location.search, title: document.title, sameDoc: window.__splitDoc === performance.timeOrigin,\n    cols: window.ChzzkBestSplit?.stats().cols.map((id) => id.slice(0, 8)), count: document.querySelector(\".cb-split-count\")?.textContent,\n    exitHidden: [...document.querySelectorAll(\".cb-split-bar .cb-split-btn\")].find((b) => b.textContent === \"나가기\")?.hidden,\n    closeHidden: [...document.querySelectorAll(\".cb-split-col .cb-split-icon\")].map((b) => b.hidden),\n    topPlayer: { videos: document.querySelectorAll(\"video\").length, stt: !!document.querySelector(\".cb-stt-button, .cb-stt-lines\"), bookmarks: !!document.querySelector('[class*=\"cb-bm\"]'), pan: !!document.querySelector('[class*=\"cb-pan\"]') },\n    frames,\n  });\n})()\n"
+ ],
+ [
+  "eval",
+  "(async () => {\n  document.querySelector(\".cb-split-bar .cb-split-btn--primary\").click();\n  const lists = () => document.querySelectorAll(\".cb-split-lists > div\");\n  for (let i = 0; i < 100 && !lists()[1]?.querySelector(\".cb-split-item\"); i++) await new Promise((r) => setTimeout(r, 100));\n  const row = [...lists()[1].querySelectorAll(\".cb-split-item\")].find((b) => !b.disabled && !b.textContent.includes(\"너불\"));\n  const name = row.querySelector(\"b\").textContent;\n  row.click();\n  return name;\n})()\n"
+ ],
+ [
+  "wait",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].length === 2"
+ ],
+ [
+  "wait",
+  "--timeout",
+  "60000",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3)"
+ ],
+ [
+  "eval",
+  "(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const frames = [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const w = f.contentWindow, d = f.contentDocument, v = d?.querySelector(\"video\");\n    return { col: f.dataset.cbCol.slice(0, 8), mark: w?.__splitMark ?? null, frame: box(f), video: box(v), aside: box(d?.querySelector(\"#aside-chatting\")), t: v ? +v.currentTime.toFixed(1) : null, paused: v?.paused };\n  });\n  return JSON.stringify({\n    url: location.pathname + location.search, title: document.title, sameDoc: window.__splitDoc === performance.timeOrigin,\n    cols: window.ChzzkBestSplit?.stats().cols.map((id) => id.slice(0, 8)), count: document.querySelector(\".cb-split-count\")?.textContent,\n    exitHidden: [...document.querySelectorAll(\".cb-split-bar .cb-split-btn\")].find((b) => b.textContent === \"나가기\")?.hidden,\n    closeHidden: [...document.querySelectorAll(\".cb-split-col .cb-split-icon\")].map((b) => b.hidden),\n    topPlayer: { videos: document.querySelectorAll(\"video\").length, stt: !!document.querySelector(\".cb-stt-button, .cb-stt-lines\"), bookmarks: !!document.querySelector('[class*=\"cb-bm\"]'), pan: !!document.querySelector('[class*=\"cb-pan\"]') },\n    frames,\n  });\n})()\n"
+ ],
+ [
+  "eval",
+  "(async () => {\n  document.querySelector(\".cb-split-bar .cb-split-btn--primary\").click();\n  const lists = () => document.querySelectorAll(\".cb-split-lists > div\");\n  for (let i = 0; i < 100 && !lists()[1]?.querySelector(\".cb-split-item\"); i++) await new Promise((r) => setTimeout(r, 100));\n  const row = [...lists()[1].querySelectorAll(\".cb-split-item\")].find((b) => !b.disabled && !b.textContent.includes(\"너불\"));\n  const name = row.querySelector(\"b\").textContent;\n  row.click();\n  return name;\n})()\n"
+ ],
+ [
+  "wait",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].length === 3"
+ ],
+ [
+  "wait",
+  "--timeout",
+  "60000",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3)"
+ ],
+ [
+  "eval",
+  "(() => {\n  window.__splitDoc = performance.timeOrigin;\n  for (const f of document.querySelectorAll(\".cb-split-body > iframe\")) f.contentWindow.__splitMark ??= f.dataset.cbCol.slice(0, 8);\n  return \"marked\";\n})()\n"
+ ],
+ [
+  "eval",
+  "(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const frames = [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const w = f.contentWindow, d = f.contentDocument, v = d?.querySelector(\"video\");\n    return { col: f.dataset.cbCol.slice(0, 8), mark: w?.__splitMark ?? null, frame: box(f), video: box(v), aside: box(d?.querySelector(\"#aside-chatting\")), t: v ? +v.currentTime.toFixed(1) : null, paused: v?.paused };\n  });\n  return JSON.stringify({\n    url: location.pathname + location.search, title: document.title, sameDoc: window.__splitDoc === performance.timeOrigin,\n    cols: window.ChzzkBestSplit?.stats().cols.map((id) => id.slice(0, 8)), count: document.querySelector(\".cb-split-count\")?.textContent,\n    exitHidden: [...document.querySelectorAll(\".cb-split-bar .cb-split-btn\")].find((b) => b.textContent === \"나가기\")?.hidden,\n    closeHidden: [...document.querySelectorAll(\".cb-split-col .cb-split-icon\")].map((b) => b.hidden),\n    topPlayer: { videos: document.querySelectorAll(\"video\").length, stt: !!document.querySelector(\".cb-stt-button, .cb-stt-lines\"), bookmarks: !!document.querySelector('[class*=\"cb-bm\"]'), pan: !!document.querySelector('[class*=\"cb-pan\"]') },\n    frames,\n  });\n})()\n"
+ ],
+ [
+  "eval",
+  "history.back()"
+ ],
+ [
+  "wait",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].length === 2"
+ ],
+ [
+  "wait",
+  "--timeout",
+  "60000",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3)"
+ ],
+ [
+  "eval",
+  "(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const frames = [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const w = f.contentWindow, d = f.contentDocument, v = d?.querySelector(\"video\");\n    return { col: f.dataset.cbCol.slice(0, 8), mark: w?.__splitMark ?? null, frame: box(f), video: box(v), aside: box(d?.querySelector(\"#aside-chatting\")), t: v ? +v.currentTime.toFixed(1) : null, paused: v?.paused };\n  });\n  return JSON.stringify({\n    url: location.pathname + location.search, title: document.title, sameDoc: window.__splitDoc === performance.timeOrigin,\n    cols: window.ChzzkBestSplit?.stats().cols.map((id) => id.slice(0, 8)), count: document.querySelector(\".cb-split-count\")?.textContent,\n    exitHidden: [...document.querySelectorAll(\".cb-split-bar .cb-split-btn\")].find((b) => b.textContent === \"나가기\")?.hidden,\n    closeHidden: [...document.querySelectorAll(\".cb-split-col .cb-split-icon\")].map((b) => b.hidden),\n    topPlayer: { videos: document.querySelectorAll(\"video\").length, stt: !!document.querySelector(\".cb-stt-button, .cb-stt-lines\"), bookmarks: !!document.querySelector('[class*=\"cb-bm\"]'), pan: !!document.querySelector('[class*=\"cb-pan\"]') },\n    frames,\n  });\n})()\n"
+ ],
+ [
+  "eval",
+  "history.back()"
+ ],
+ [
+  "wait",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].length === 1"
+ ],
+ [
+  "wait",
+  "--timeout",
+  "60000",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3)"
+ ],
+ [
+  "eval",
+  "(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const frames = [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const w = f.contentWindow, d = f.contentDocument, v = d?.querySelector(\"video\");\n    return { col: f.dataset.cbCol.slice(0, 8), mark: w?.__splitMark ?? null, frame: box(f), video: box(v), aside: box(d?.querySelector(\"#aside-chatting\")), t: v ? +v.currentTime.toFixed(1) : null, paused: v?.paused };\n  });\n  return JSON.stringify({\n    url: location.pathname + location.search, title: document.title, sameDoc: window.__splitDoc === performance.timeOrigin,\n    cols: window.ChzzkBestSplit?.stats().cols.map((id) => id.slice(0, 8)), count: document.querySelector(\".cb-split-count\")?.textContent,\n    exitHidden: [...document.querySelectorAll(\".cb-split-bar .cb-split-btn\")].find((b) => b.textContent === \"나가기\")?.hidden,\n    closeHidden: [...document.querySelectorAll(\".cb-split-col .cb-split-icon\")].map((b) => b.hidden),\n    topPlayer: { videos: document.querySelectorAll(\"video\").length, stt: !!document.querySelector(\".cb-stt-button, .cb-stt-lines\"), bookmarks: !!document.querySelector('[class*=\"cb-bm\"]'), pan: !!document.querySelector('[class*=\"cb-pan\"]') },\n    frames,\n  });\n})()\n"
+ ],
+ [
+  "eval",
+  "history.forward()"
+ ],
+ [
+  "wait",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].length === 2"
+ ],
+ [
+  "wait",
+  "--timeout",
+  "60000",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3)"
+ ],
+ [
+  "eval",
+  "history.forward()"
+ ],
+ [
+  "wait",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].length === 3"
+ ],
+ [
+  "wait",
+  "--timeout",
+  "60000",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3)"
+ ],
+ [
+  "eval",
+  "(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const frames = [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const w = f.contentWindow, d = f.contentDocument, v = d?.querySelector(\"video\");\n    return { col: f.dataset.cbCol.slice(0, 8), mark: w?.__splitMark ?? null, frame: box(f), video: box(v), aside: box(d?.querySelector(\"#aside-chatting\")), t: v ? +v.currentTime.toFixed(1) : null, paused: v?.paused };\n  });\n  return JSON.stringify({\n    url: location.pathname + location.search, title: document.title, sameDoc: window.__splitDoc === performance.timeOrigin,\n    cols: window.ChzzkBestSplit?.stats().cols.map((id) => id.slice(0, 8)), count: document.querySelector(\".cb-split-count\")?.textContent,\n    exitHidden: [...document.querySelectorAll(\".cb-split-bar .cb-split-btn\")].find((b) => b.textContent === \"나가기\")?.hidden,\n    closeHidden: [...document.querySelectorAll(\".cb-split-col .cb-split-icon\")].map((b) => b.hidden),\n    topPlayer: { videos: document.querySelectorAll(\"video\").length, stt: !!document.querySelector(\".cb-stt-button, .cb-stt-lines\"), bookmarks: !!document.querySelector('[class*=\"cb-bm\"]'), pan: !!document.querySelector('[class*=\"cb-pan\"]') },\n    frames,\n  });\n})()\n"
+ ],
+ [
+  "set",
+  "viewport",
+  "1100",
+  "800"
+ ],
+ [
+  "wait",
+  "1000"
+ ],
+ [
+  "eval",
+  "(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const frames = [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const w = f.contentWindow, d = f.contentDocument, v = d?.querySelector(\"video\");\n    return { col: f.dataset.cbCol.slice(0, 8), mark: w?.__splitMark ?? null, frame: box(f), video: box(v), aside: box(d?.querySelector(\"#aside-chatting\")), t: v ? +v.currentTime.toFixed(1) : null, paused: v?.paused };\n  });\n  return JSON.stringify({\n    url: location.pathname + location.search, title: document.title, sameDoc: window.__splitDoc === performance.timeOrigin,\n    cols: window.ChzzkBestSplit?.stats().cols.map((id) => id.slice(0, 8)), count: document.querySelector(\".cb-split-count\")?.textContent,\n    exitHidden: [...document.querySelectorAll(\".cb-split-bar .cb-split-btn\")].find((b) => b.textContent === \"나가기\")?.hidden,\n    closeHidden: [...document.querySelectorAll(\".cb-split-col .cb-split-icon\")].map((b) => b.hidden),\n    topPlayer: { videos: document.querySelectorAll(\"video\").length, stt: !!document.querySelector(\".cb-stt-button, .cb-stt-lines\"), bookmarks: !!document.querySelector('[class*=\"cb-bm\"]'), pan: !!document.querySelector('[class*=\"cb-pan\"]') },\n    frames,\n  });\n})()\n"
+ ],
+ [
+  "eval",
+  "[...document.querySelectorAll('.cb-split-bar .cb-split-btn')].find((b) => b.textContent === '나가기').click()"
+ ],
+ [
+  "wait",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].length === 1"
+ ],
+ [
+  "wait",
+  "--timeout",
+  "60000",
+  "--fn",
+  "[...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3)"
+ ],
+ [
+  "eval",
+  "(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const frames = [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const w = f.contentWindow, d = f.contentDocument, v = d?.querySelector(\"video\");\n    return { col: f.dataset.cbCol.slice(0, 8), mark: w?.__splitMark ?? null, frame: box(f), video: box(v), aside: box(d?.querySelector(\"#aside-chatting\")), t: v ? +v.currentTime.toFixed(1) : null, paused: v?.paused };\n  });\n  return JSON.stringify({\n    url: location.pathname + location.search, title: document.title, sameDoc: window.__splitDoc === performance.timeOrigin,\n    cols: window.ChzzkBestSplit?.stats().cols.map((id) => id.slice(0, 8)), count: document.querySelector(\".cb-split-count\")?.textContent,\n    exitHidden: [...document.querySelectorAll(\".cb-split-bar .cb-split-btn\")].find((b) => b.textContent === \"나가기\")?.hidden,\n    closeHidden: [...document.querySelectorAll(\".cb-split-col .cb-split-icon\")].map((b) => b.hidden),\n    topPlayer: { videos: document.querySelectorAll(\"video\").length, stt: !!document.querySelector(\".cb-stt-button, .cb-stt-lines\"), bookmarks: !!document.querySelector('[class*=\"cb-bm\"]'), pan: !!document.querySelector('[class*=\"cb-pan\"]') },\n    frames,\n  });\n})()\n"
+ ],
+ [
+  "set",
+  "viewport",
+  "1600",
+  "900"
+ ],
+ [
+  "wait",
+  "1000"
+ ],
+ [
+  "eval",
+  "(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const frames = [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const w = f.contentWindow, d = f.contentDocument, v = d?.querySelector(\"video\");\n    return { col: f.dataset.cbCol.slice(0, 8), mark: w?.__splitMark ?? null, frame: box(f), video: box(v), aside: box(d?.querySelector(\"#aside-chatting\")), t: v ? +v.currentTime.toFixed(1) : null, paused: v?.paused };\n  });\n  return JSON.stringify({\n    url: location.pathname + location.search, title: document.title, sameDoc: window.__splitDoc === performance.timeOrigin,\n    cols: window.ChzzkBestSplit?.stats().cols.map((id) => id.slice(0, 8)), count: document.querySelector(\".cb-split-count\")?.textContent,\n    exitHidden: [...document.querySelectorAll(\".cb-split-bar .cb-split-btn\")].find((b) => b.textContent === \"나가기\")?.hidden,\n    closeHidden: [...document.querySelectorAll(\".cb-split-col .cb-split-icon\")].map((b) => b.hidden),\n    topPlayer: { videos: document.querySelectorAll(\"video\").length, stt: !!document.querySelector(\".cb-stt-button, .cb-stt-lines\"), bookmarks: !!document.querySelector('[class*=\"cb-bm\"]'), pan: !!document.querySelector('[class*=\"cb-pan\"]') },\n    frames,\n  });\n})()\n"
+ ]
+]
