@@ -149,6 +149,9 @@ const logger = getLogger(["split-view"]);
             }
             #layout-body main > :not(:first-child), #layout-body main > :first-child > :not(:first-child) { display: none !important; }
             #layout-body main > :first-child, #layout-body main > :first-child > :first-child { width: 100% !important; max-width: none !important; }
+            /* Chzzk's wide view mode makes the player box 100vh tall: the video letterboxes inside it while the
+               controls and captions anchor to the box, off the picture. The 16:9 box keeps them on it. */
+            #layout-body main > :first-child > :first-child { height: auto !important; }
             #aside-chatting {
                 position: relative !important; flex: 1 1 auto !important; width: 100% !important; max-width: none !important;
                 height: auto !important; min-height: 0 !important; top: auto !important; right: auto !important; border-left: 0 !important;
