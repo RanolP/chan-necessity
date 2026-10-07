@@ -1,0 +1,87 @@
+[
+  [
+    "set",
+    "viewport",
+    "1600",
+    "900"
+  ],
+  [
+    "open",
+    "https://chzzk.naver.com/live/a96cea2d2c39cec636ba8170c66a0510"
+  ],
+  [
+    "wait",
+    "--fn",
+    "[...document.querySelectorAll('.cb-split-body > iframe')].length === 1"
+  ],
+  [
+    "wait",
+    "--timeout",
+    "60000",
+    "--fn",
+    "[...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3)"
+  ],
+  [
+    "wait",
+    "--timeout",
+    "5000",
+    "--fn",
+    "[...document.querySelectorAll('.cb-split-body > iframe')].every((f) => getComputedStyle(f.contentDocument.querySelector('#header')).display === 'none')"
+  ],
+  [
+    "wait",
+    "3000"
+  ],
+  [
+    "eval",
+    "(() => {\n  // Chzzk keeps the view mode across loads; force it so the run does not depend on the last one.\n  const want = true;\n  for (const f of document.querySelectorAll(\".cb-split-body > iframe\")) {\n    const d = f.contentDocument;\n    if (/_is_large_/.test(d.querySelector(\"#layout-body main\").className) !== want) d.querySelector(\".pzp-viewmode-button\").click();\n  }\n  return want ? \"wide\" : \"normal\";\n})()\n"
+  ],
+  [
+    "wait",
+    "1500"
+  ],
+  [
+    "eval",
+    "// Per column frame: Chzzk's view mode (wide = main has _is_large_), the player, the picture, control bar,\n// caption overlay and chat boxes, and whether the overlays sit on the picture. Wide mode once made the\n// player 100vh tall: the <video> element filled it but its picture letterboxed mid-frame, while controls\n// and captions hugged the frame's bottom edge, off the picture. So \"picture\" is the letterboxed frame,\n// not the element box, which covered the overlays either way.\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const picture = (v) => {\n    const [x, y, w, h] = box(v);\n    const s = Math.min(w / v.videoWidth, h / v.videoHeight);\n    return [x + (w - v.videoWidth * s) / 2, y + (h - v.videoHeight * s) / 2, v.videoWidth * s, v.videoHeight * s].map(Math.round);\n  };\n  const inside = (a, b) => !!a && !!b && a[1] >= b[1] - 1 && a[1] + a[3] <= b[1] + b[3] + 1;\n  return JSON.stringify(\n    [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n      const d = f.contentDocument, v = d.querySelector(\"video\");\n      const pic = v?.videoWidth ? picture(v) : null, bar = box(d.querySelector(\".pzp-pc__bottom\")), stt = box(d.querySelector(\".cb-stt-overlay\"));\n      return {\n        col: f.dataset.cbCol.slice(0, 8), frameW: Math.round(f.getBoundingClientRect().width),\n        wide: /_is_large_/.test(d.querySelector(\"#layout-body main\")?.className ?? \"\"),\n        player: box(d.querySelector(\"#layout-body main > :first-child > :first-child\")), video: box(v), picture: pic, bar, stt,\n        aside: box(d.querySelector(\"#aside-chatting\")),\n        barOnPicture: inside(bar, pic), sttOnPicture: stt ? inside(stt, pic) : null,\n      };\n    }),\n  );\n})()"
+  ],
+  [
+    "set",
+    "viewport",
+    "980",
+    "900"
+  ],
+  [
+    "wait",
+    "1500"
+  ],
+  [
+    "eval",
+    "// Per column frame: Chzzk's view mode (wide = main has _is_large_), the player, the picture, control bar,\n// caption overlay and chat boxes, and whether the overlays sit on the picture. Wide mode once made the\n// player 100vh tall: the <video> element filled it but its picture letterboxed mid-frame, while controls\n// and captions hugged the frame's bottom edge, off the picture. So \"picture\" is the letterboxed frame,\n// not the element box, which covered the overlays either way.\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const picture = (v) => {\n    const [x, y, w, h] = box(v);\n    const s = Math.min(w / v.videoWidth, h / v.videoHeight);\n    return [x + (w - v.videoWidth * s) / 2, y + (h - v.videoHeight * s) / 2, v.videoWidth * s, v.videoHeight * s].map(Math.round);\n  };\n  const inside = (a, b) => !!a && !!b && a[1] >= b[1] - 1 && a[1] + a[3] <= b[1] + b[3] + 1;\n  return JSON.stringify(\n    [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n      const d = f.contentDocument, v = d.querySelector(\"video\");\n      const pic = v?.videoWidth ? picture(v) : null, bar = box(d.querySelector(\".pzp-pc__bottom\")), stt = box(d.querySelector(\".cb-stt-overlay\"));\n      return {\n        col: f.dataset.cbCol.slice(0, 8), frameW: Math.round(f.getBoundingClientRect().width),\n        wide: /_is_large_/.test(d.querySelector(\"#layout-body main\")?.className ?? \"\"),\n        player: box(d.querySelector(\"#layout-body main > :first-child > :first-child\")), video: box(v), picture: pic, bar, stt,\n        aside: box(d.querySelector(\"#aside-chatting\")),\n        barOnPicture: inside(bar, pic), sttOnPicture: stt ? inside(stt, pic) : null,\n      };\n    }),\n  );\n})()"
+  ],
+  [
+    "eval",
+    "(() => {\n  // Chzzk keeps the view mode across loads; force it so the run does not depend on the last one.\n  const want = false;\n  for (const f of document.querySelectorAll(\".cb-split-body > iframe\")) {\n    const d = f.contentDocument;\n    if (/_is_large_/.test(d.querySelector(\"#layout-body main\").className) !== want) d.querySelector(\".pzp-viewmode-button\").click();\n  }\n  return want ? \"wide\" : \"normal\";\n})()\n"
+  ],
+  [
+    "wait",
+    "1500"
+  ],
+  [
+    "eval",
+    "// Per column frame: Chzzk's view mode (wide = main has _is_large_), the player, the picture, control bar,\n// caption overlay and chat boxes, and whether the overlays sit on the picture. Wide mode once made the\n// player 100vh tall: the <video> element filled it but its picture letterboxed mid-frame, while controls\n// and captions hugged the frame's bottom edge, off the picture. So \"picture\" is the letterboxed frame,\n// not the element box, which covered the overlays either way.\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const picture = (v) => {\n    const [x, y, w, h] = box(v);\n    const s = Math.min(w / v.videoWidth, h / v.videoHeight);\n    return [x + (w - v.videoWidth * s) / 2, y + (h - v.videoHeight * s) / 2, v.videoWidth * s, v.videoHeight * s].map(Math.round);\n  };\n  const inside = (a, b) => !!a && !!b && a[1] >= b[1] - 1 && a[1] + a[3] <= b[1] + b[3] + 1;\n  return JSON.stringify(\n    [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n      const d = f.contentDocument, v = d.querySelector(\"video\");\n      const pic = v?.videoWidth ? picture(v) : null, bar = box(d.querySelector(\".pzp-pc__bottom\")), stt = box(d.querySelector(\".cb-stt-overlay\"));\n      return {\n        col: f.dataset.cbCol.slice(0, 8), frameW: Math.round(f.getBoundingClientRect().width),\n        wide: /_is_large_/.test(d.querySelector(\"#layout-body main\")?.className ?? \"\"),\n        player: box(d.querySelector(\"#layout-body main > :first-child > :first-child\")), video: box(v), picture: pic, bar, stt,\n        aside: box(d.querySelector(\"#aside-chatting\")),\n        barOnPicture: inside(bar, pic), sttOnPicture: stt ? inside(stt, pic) : null,\n      };\n    }),\n  );\n})()"
+  ],
+  [
+    "set",
+    "viewport",
+    "1600",
+    "900"
+  ],
+  [
+    "wait",
+    "1500"
+  ],
+  [
+    "eval",
+    "// Per column frame: Chzzk's view mode (wide = main has _is_large_), the player, the picture, control bar,\n// caption overlay and chat boxes, and whether the overlays sit on the picture. Wide mode once made the\n// player 100vh tall: the <video> element filled it but its picture letterboxed mid-frame, while controls\n// and captions hugged the frame's bottom edge, off the picture. So \"picture\" is the letterboxed frame,\n// not the element box, which covered the overlays either way.\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const picture = (v) => {\n    const [x, y, w, h] = box(v);\n    const s = Math.min(w / v.videoWidth, h / v.videoHeight);\n    return [x + (w - v.videoWidth * s) / 2, y + (h - v.videoHeight * s) / 2, v.videoWidth * s, v.videoHeight * s].map(Math.round);\n  };\n  const inside = (a, b) => !!a && !!b && a[1] >= b[1] - 1 && a[1] + a[3] <= b[1] + b[3] + 1;\n  return JSON.stringify(\n    [...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n      const d = f.contentDocument, v = d.querySelector(\"video\");\n      const pic = v?.videoWidth ? picture(v) : null, bar = box(d.querySelector(\".pzp-pc__bottom\")), stt = box(d.querySelector(\".cb-stt-overlay\"));\n      return {\n        col: f.dataset.cbCol.slice(0, 8), frameW: Math.round(f.getBoundingClientRect().width),\n        wide: /_is_large_/.test(d.querySelector(\"#layout-body main\")?.className ?? \"\"),\n        player: box(d.querySelector(\"#layout-body main > :first-child > :first-child\")), video: box(v), picture: pic, bar, stt,\n        aside: box(d.querySelector(\"#aside-chatting\")),\n        barOnPicture: inside(bar, pic), sttOnPicture: stt ? inside(stt, pic) : null,\n      };\n    }),\n  );\n})()"
+  ]
+]
