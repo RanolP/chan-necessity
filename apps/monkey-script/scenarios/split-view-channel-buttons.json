@@ -1,0 +1,61 @@
+[
+  [
+    "set",
+    "viewport",
+    "980",
+    "900"
+  ],
+  [
+    "open",
+    "https://chzzk.naver.com/live/a96cea2d2c39cec636ba8170c66a0510"
+  ],
+  [
+    "wait",
+    "--timeout",
+    "60000",
+    "--fn",
+    "[...document.querySelectorAll('.cb-split-body > iframe')].length === 1 && [...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3 && f.contentDocument.querySelector('#layout-body main button'))"
+  ],
+  [
+    "wait",
+    "3000"
+  ],
+  [
+    "eval",
+    "// Per column frame: whether Chzzk's follow, subscribe and gift-subscription buttons are on screen and on top\n// (the frame CSS once hid <main>'s whole channel row), the player box ratio (must stay 16:9), and whether the\n// ambient canvas still shows (a more specific hide rule once beat its display rule).\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  return JSON.stringify([...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const d = f.contentDocument, w = f.contentWindow;\n    const hit = (re) => {\n      const b = [...d.querySelectorAll(\"#layout-body main button\")].find((b) => re.test(b.innerText));\n      if (!b) return \"missing\";\n      const r = b.getBoundingClientRect(), e = d.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);\n      return r.width > 0 && r.top >= 0 && r.bottom <= w.innerHeight && !!e && b.contains(e);\n    };\n    const p = box(d.querySelector(\"#layout-body main > :first-child > :first-child\")), c = d.querySelector(\"#layout-body main > canvas.cb-ambient\");\n    return {\n      col: f.dataset.cbCol.slice(0, 8), frame: [w.innerWidth, w.innerHeight], player: p, ratio: p && +(p[2] / p[3]).toFixed(2),\n      details: box(d.querySelector('#layout-body main > [class*=\"_details_\"]')), aside: box(d.querySelector(\"#aside-chatting\")),\n      follow: hit(/^팔로우|^언팔로우/), subscribe: hit(/^구독$|^구독 중|^구독하기/), gift: hit(/구독 선물/),\n      ambient: c ? getComputedStyle(c).display : null,\n    };\n  }));\n})()\n"
+  ],
+  [
+    "set",
+    "viewport",
+    "1600",
+    "900"
+  ],
+  [
+    "wait",
+    "1500"
+  ],
+  [
+    "eval",
+    "// Per column frame: whether Chzzk's follow, subscribe and gift-subscription buttons are on screen and on top\n// (the frame CSS once hid <main>'s whole channel row), the player box ratio (must stay 16:9), and whether the\n// ambient canvas still shows (a more specific hide rule once beat its display rule).\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  return JSON.stringify([...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const d = f.contentDocument, w = f.contentWindow;\n    const hit = (re) => {\n      const b = [...d.querySelectorAll(\"#layout-body main button\")].find((b) => re.test(b.innerText));\n      if (!b) return \"missing\";\n      const r = b.getBoundingClientRect(), e = d.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);\n      return r.width > 0 && r.top >= 0 && r.bottom <= w.innerHeight && !!e && b.contains(e);\n    };\n    const p = box(d.querySelector(\"#layout-body main > :first-child > :first-child\")), c = d.querySelector(\"#layout-body main > canvas.cb-ambient\");\n    return {\n      col: f.dataset.cbCol.slice(0, 8), frame: [w.innerWidth, w.innerHeight], player: p, ratio: p && +(p[2] / p[3]).toFixed(2),\n      details: box(d.querySelector('#layout-body main > [class*=\"_details_\"]')), aside: box(d.querySelector(\"#aside-chatting\")),\n      follow: hit(/^팔로우|^언팔로우/), subscribe: hit(/^구독$|^구독 중|^구독하기/), gift: hit(/구독 선물/),\n      ambient: c ? getComputedStyle(c).display : null,\n    };\n  }));\n})()\n"
+  ],
+  [
+    "set",
+    "viewport",
+    "1600",
+    "600"
+  ],
+  [
+    "wait",
+    "1500"
+  ],
+  [
+    "eval",
+    "// Per column frame: whether Chzzk's follow, subscribe and gift-subscription buttons are on screen and on top\n// (the frame CSS once hid <main>'s whole channel row), the player box ratio (must stay 16:9), and whether the\n// ambient canvas still shows (a more specific hide rule once beat its display rule).\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  return JSON.stringify([...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n    const d = f.contentDocument, w = f.contentWindow;\n    const hit = (re) => {\n      const b = [...d.querySelectorAll(\"#layout-body main button\")].find((b) => re.test(b.innerText));\n      if (!b) return \"missing\";\n      const r = b.getBoundingClientRect(), e = d.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);\n      return r.width > 0 && r.top >= 0 && r.bottom <= w.innerHeight && !!e && b.contains(e);\n    };\n    const p = box(d.querySelector(\"#layout-body main > :first-child > :first-child\")), c = d.querySelector(\"#layout-body main > canvas.cb-ambient\");\n    return {\n      col: f.dataset.cbCol.slice(0, 8), frame: [w.innerWidth, w.innerHeight], player: p, ratio: p && +(p[2] / p[3]).toFixed(2),\n      details: box(d.querySelector('#layout-body main > [class*=\"_details_\"]')), aside: box(d.querySelector(\"#aside-chatting\")),\n      follow: hit(/^팔로우|^언팔로우/), subscribe: hit(/^구독$|^구독 중|^구독하기/), gift: hit(/구독 선물/),\n      ambient: c ? getComputedStyle(c).display : null,\n    };\n  }));\n})()\n"
+  ],
+  [
+    "set",
+    "viewport",
+    "1600",
+    "900"
+  ]
+]
