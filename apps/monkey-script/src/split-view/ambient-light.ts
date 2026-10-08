@@ -11,7 +11,9 @@ const logger = getLogger(["split-view", "ambient-light"]);
 // in the picture's colours. Pixels are never read back, so a tainted
 // canvas draws just the same. The canvas sits inside <main>, under the
 // player in z-order; a column whose player fills <main> has no bands and
-// draws nothing. A row in the player settings menu turns it off for every
+// draws nothing. A second canvas fills the chat panel behind its messages,
+// whose background drops to 60% so the glow shows through and the text
+// stays readable. A row in the player settings menu turns it off for every
 // column (saved, default on).
 declare global {
     interface Window {
@@ -52,6 +54,19 @@ declare global {
             display: block !important; position: absolute; z-index: -1; pointer-events: none;
             filter: blur(56px) saturate(1.6) brightness(1.1); opacity: .8; transform: scale(1.12, 1.45);
         }
+        #aside-chatting:has(> .cb-ambient) {
+            isolation: isolate; background-color: color-mix(in srgb, var(--sem-color-background-neutral-base) 60%, transparent) !important;
+        }
+        #aside-chatting > canvas.cb-ambient {
+            position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;
+            filter: blur(56px) saturate(1.6) brightness(1.1); opacity: .8;
+        }
+        /* The header, ranking and input rows paint the panel colour themselves. The pinned message keeps the
+           60% layer, since the list scrolls under it. */
+        #aside-chatting:has(> .cb-ambient) > *, #aside-chatting:has(> .cb-ambient) > * > h2 { background-color: transparent !important; }
+        #aside-chatting:has(> .cb-ambient) > * > [class*="_fixed_"] {
+            background-color: color-mix(in srgb, var(--sem-color-background-neutral-base) 60%, transparent) !important;
+        }
         .cb-ambient-item { cursor: pointer; }
         .pzp-pc:not(.pzp-pc--setting-home) .pzp-settings > .cb-ambient-item { display: none; }
     `;
@@ -65,10 +80,18 @@ declare global {
 
     let canvas: HTMLCanvasElement | null = null;
     let ctx: CanvasRenderingContext2D | null = null;
+    let chat: HTMLCanvasElement | null = null;
+    let chatCtx: CanvasRenderingContext2D | null = null;
     function drop() {
         canvas?.remove();
-        canvas = null;
-        ctx = null;
+        chat?.remove();
+        canvas = chat = null;
+        ctx = chatCtx = null;
+    }
+    function glow() {
+        const c = Object.assign(document.createElement("canvas"), { className: "cb-ambient", width: 32, height: 18 });
+        c.setAttribute("aria-hidden", "true");
+        return c;
     }
 
     // Places the canvas over the picture's box inside <main>; false when
@@ -78,8 +101,7 @@ declare global {
         const v = videoRect(video);
         if (!v.width || !v.height || (v.top - m.top < 2 && m.bottom - v.bottom < 2 && v.left - m.left < 2 && m.right - v.right < 2)) return false;
         if (!canvas || canvas.parentElement !== main) {
-            canvas ??= Object.assign(document.createElement("canvas"), { className: "cb-ambient", width: 32, height: 18 });
-            canvas.setAttribute("aria-hidden", "true");
+            canvas ??= glow();
             ctx = canvas.getContext("2d", { alpha: false });
             main.append(canvas);
         }
@@ -96,12 +118,23 @@ declare global {
         try {
             const main = document.querySelector<HTMLElement>("#layout-body main");
             const video = main?.querySelector("video");
+            const aside = document.querySelector<HTMLElement>("#aside-chatting");
             if (!on || !main || !video) drop();
-            else if (!place(main, video)) canvas?.remove();
-            else if (!document.hidden && !video.paused && !video.ended && video.readyState >= 2) {
-                ctx!.drawImage(video, 0, 0, 32, 18);
-                draws++;
-                wait = 1000 / (reduced.matches ? FPS_REDUCED : FPS);
+            else {
+                const bands = place(main, video);
+                if (!bands) canvas?.remove();
+                if (!aside) chat?.remove();
+                else if (!chat || chat.parentElement !== aside) {
+                    chat ??= glow();
+                    chatCtx = chat.getContext("2d", { alpha: false });
+                    aside.append(chat);
+                }
+                if ((bands || aside) && !document.hidden && !video.paused && !video.ended && video.readyState >= 2) {
+                    if (bands) ctx!.drawImage(video, 0, 0, 32, 18);
+                    if (aside) chatCtx!.drawImage(video, 0, 0, 32, 18);
+                    draws++;
+                    wait = 1000 / (reduced.matches ? FPS_REDUCED : FPS);
+                }
             }
         } catch (error) {
             logger.error`draw failed ${error}`;

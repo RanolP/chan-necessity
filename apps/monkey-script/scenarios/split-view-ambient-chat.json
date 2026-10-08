@@ -1,0 +1,61 @@
+[
+  [
+    "set",
+    "viewport",
+    "980",
+    "900"
+  ],
+  [
+    "open",
+    "https://chzzk.naver.com/live/75cbf189b3bb8f9f687d2aca0d0a382b"
+  ],
+  [
+    "wait",
+    "--timeout",
+    "60000",
+    "--fn",
+    "[...document.querySelectorAll('.cb-split-body > iframe')].length === 1 && [...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3)"
+  ],
+  [
+    "eval",
+    "document.querySelector(\".cb-split-body > iframe\").contentWindow.GM_setValue(\"split.ambient\", true); \"split.ambient = true\""
+  ],
+  [
+    "wait",
+    "3000"
+  ],
+  [
+    "eval",
+    "// Per column frame: whether the chat glow canvas is in #aside-chatting, the panel's computed background (60% while\n// the glow is on, opaque when off) and the backgrounds still painted by its rows.\n(() => JSON.stringify([...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n  const d = f.contentDocument, w = f.contentWindow, a = d.querySelector(\"#aside-chatting\"), bg = (e) => e && w.getComputedStyle(e).backgroundColor;\n  return {\n    frame: [w.innerWidth, w.innerHeight], theme: d.documentElement.className, stats: w.ChzzkBestAmbient?.stats(),\n    chatGlow: !!a?.querySelector(\":scope > canvas.cb-ambient\"), aside: bg(a),\n    rows: [...(a?.children ?? [])].filter((e) => e.tagName !== \"CANVAS\").map(bg), title: bg(a?.querySelector(\":scope > * > h2\")), pinned: bg(a?.querySelector(':scope > * > [class*=\"_fixed_\"]')),\n  };\n})))()"
+  ],
+  [
+    "set",
+    "viewport",
+    "1600",
+    "900"
+  ],
+  [
+    "wait",
+    "3000"
+  ],
+  [
+    "eval",
+    "// Per column frame: whether the chat glow canvas is in #aside-chatting, the panel's computed background (60% while\n// the glow is on, opaque when off) and the backgrounds still painted by its rows.\n(() => JSON.stringify([...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n  const d = f.contentDocument, w = f.contentWindow, a = d.querySelector(\"#aside-chatting\"), bg = (e) => e && w.getComputedStyle(e).backgroundColor;\n  return {\n    frame: [w.innerWidth, w.innerHeight], theme: d.documentElement.className, stats: w.ChzzkBestAmbient?.stats(),\n    chatGlow: !!a?.querySelector(\":scope > canvas.cb-ambient\"), aside: bg(a),\n    rows: [...(a?.children ?? [])].filter((e) => e.tagName !== \"CANVAS\").map(bg), title: bg(a?.querySelector(\":scope > * > h2\")), pinned: bg(a?.querySelector(':scope > * > [class*=\"_fixed_\"]')),\n  };\n})))()"
+  ],
+  [
+    "eval",
+    "document.querySelector(\".cb-split-body > iframe\").contentWindow.GM_setValue(\"split.ambient\", false); \"split.ambient = false\""
+  ],
+  [
+    "wait",
+    "2500"
+  ],
+  [
+    "eval",
+    "// Per column frame: whether the chat glow canvas is in #aside-chatting, the panel's computed background (60% while\n// the glow is on, opaque when off) and the backgrounds still painted by its rows.\n(() => JSON.stringify([...document.querySelectorAll(\".cb-split-body > iframe\")].map((f) => {\n  const d = f.contentDocument, w = f.contentWindow, a = d.querySelector(\"#aside-chatting\"), bg = (e) => e && w.getComputedStyle(e).backgroundColor;\n  return {\n    frame: [w.innerWidth, w.innerHeight], theme: d.documentElement.className, stats: w.ChzzkBestAmbient?.stats(),\n    chatGlow: !!a?.querySelector(\":scope > canvas.cb-ambient\"), aside: bg(a),\n    rows: [...(a?.children ?? [])].filter((e) => e.tagName !== \"CANVAS\").map(bg), title: bg(a?.querySelector(\":scope > * > h2\")), pinned: bg(a?.querySelector(':scope > * > [class*=\"_fixed_\"]')),\n  };\n})))()"
+  ],
+  [
+    "eval",
+    "document.querySelector(\".cb-split-body > iframe\").contentWindow.GM_setValue(\"split.ambient\", true); \"split.ambient = true\""
+  ]
+]
