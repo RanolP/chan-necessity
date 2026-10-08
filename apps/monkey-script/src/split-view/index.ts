@@ -67,6 +67,7 @@ interface Column {
     pos: HTMLSpanElement;
     avatar: HTMLImageElement;
     name: HTMLAnchorElement;
+    stat: HTMLSpanElement;
     live: HTMLSpanElement;
     stt: HTMLSpanElement;
     close: HTMLButtonElement;
@@ -150,9 +151,13 @@ const logger = getLogger(["split-view"]);
             /* main's second child is the channel row with Chzzk's follow, subscribe and gift-subscription buttons. One
                :not() list keeps this rule less specific than ambient-light's canvas rule, which must still win. */
             #layout-body main > :not(:first-child, [class*="_details_"]), #layout-body main > :first-child > :not(:first-child) { display: none !important; }
-            /* The column header already shows the avatar; without it the buttons fit a narrow column on one line. */
-            #layout-body main > [class*="_details_"] { padding-bottom: 12px !important; }
-            #layout-body main > [class*="_details_"] [class*="_thumbnail_"], #layout-body main > [class*="_details_"] [class*="_nudge_"]:empty { display: none !important; }
+            /* The column header already shows the avatar, name and follower count, so the row keeps only the buttons,
+               right-aligned like Chzzk's own. Its title block above is hidden, so the row takes that block's padding. */
+            #layout-body main > [class*="_details_"] { padding: 16px min(30px, 4vw) !important; }
+            #layout-body main > [class*="_details_"] :is([class*="_thumbnail_"], [class*="_channel_"], [class*="_nudge_"]:empty) { display: none !important; }
+            /* Chzzk turns this row into a column below some width, hence both axes. */
+            #layout-body main > [class*="_details_"] [class*="_inner_"] { flex: 1 1 auto !important; justify-content: flex-end !important; align-items: flex-end !important; }
+            #layout-body main > [class*="_details_"] [class*="_control_"] { flex-wrap: wrap !important; justify-content: flex-end !important; }
             #layout-body main > [class*="_details_"] button { white-space: nowrap !important; }
             #layout-body main > :first-child, #layout-body main > :first-child > :first-child { width: 100% !important; max-width: none !important; }
             /* Chzzk's wide view mode makes the player box 100vh tall: the video letterboxes inside it while the
@@ -168,9 +173,10 @@ const logger = getLogger(["split-view"]);
                     flex: 1 1 0 !important; height: 100% !important; display: flex !important; flex-direction: column !important;
                     justify-content: center !important; background: #000 !important;
                 }
-                /* The player takes the height the channel row leaves and the largest 16:9 box that fits in it. */
+                /* The player's box starts 16:9 and gives up only the height the channel row needs, so the row sits right
+                   under the picture and main centres the two together; the player is the largest 16:9 box left in it. */
                 #layout-body main > :first-child {
-                    flex: 1 1 0 !important; min-height: 0 !important; container-type: size !important;
+                    flex: 0 1 auto !important; aspect-ratio: 16 / 9 !important; min-height: 0 !important; container-type: size !important;
                     display: flex !important; flex-direction: column !important; justify-content: center !important;
                 }
                 #layout-body main > :first-child > :first-child { width: min(100cqw, 100cqh * 16 / 9) !important; margin: 0 auto !important; }
@@ -404,8 +410,10 @@ const logger = getLogger(["split-view"]);
         .cb-split-head { flex: none; display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 6px 0 8px; border-bottom: 1px solid var(--cbs-line); }
         .cb-split-pos { flex: none; width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--cbs-raised); color: var(--cbs-sub); }
         .cb-split-avatar { flex: none; width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: var(--cbs-raised); }
-        .cb-split-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cb-split-name { flex: 0 1 auto; min-width: 0; font-size: 13px; font-weight: 700; color: inherit; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cb-split-name:hover { text-decoration: underline; }
+        /* Zero basis: the stats take only what the name leaves, and still push the tags right when empty. */
+        .cb-split-stat { flex: 1 1 0; min-width: 0; font-size: 12px; color: var(--cbs-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cb-split-tag { flex: none; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 5px; background: var(--cbs-raised); color: var(--cbs-sub); }
         .cb-split-tag--stt { color: var(--cbs-accent); }
         .cb-split-tag--live { background: var(--cbs-live); color: #fff; }
@@ -523,6 +531,24 @@ const logger = getLogger(["split-view"]);
             if (entry === "push" && splitUrl(cols) !== here()) rawPush(history.state, "", splitUrl(cols));
             render();
         }
+        // The follower and viewer counts come as Chzzk words them from the
+        // frame's own channel row and (hidden) title block, which Chzzk keeps
+        // refreshing while live, so the header needs no request of its own.
+        function restat() {
+            for (const c of columns.values()) {
+                let text = "";
+                try {
+                    const main = c.frame?.contentDocument?.querySelector("#layout-body main");
+                    const counts = [main?.querySelector(':scope > [class*="_details_"] [class*="_channel_"] > [class*="_count_"]'), main?.querySelector('[class*="_data_"] > [class*="_count_"]')];
+                    text = counts.map((e) => e?.textContent?.trim()).filter(Boolean).join(" · ");
+                } catch (error) {
+                    logger.error`stats read failed ${c.id} ${error}`;
+                }
+                if (c.stat.textContent === text) continue;
+                c.stat.textContent = text;
+                c.stat.title = text;
+            }
+        }
         function retitle() {
             const names = cols.map((id) => columns.get(id)?.name.textContent ?? id.slice(0, 8));
             document.title = `${names.length ? names.join(" · ") : "스플릿 뷰"} - CHZZK`;
@@ -583,6 +609,7 @@ const logger = getLogger(["split-view"]);
             c.name.target = "_blank";
             c.name.rel = "noopener";
             c.name.title = "새 탭에서 열기";
+            c.stat = el("span", "cb-split-stat");
             c.live = el("span", "cb-split-tag", "확인 중");
             c.stt = el("span", "cb-split-tag cb-split-tag--stt", "자막");
             c.stt.title = "실시간 자막은 왼쪽 칸에서 돌아요";
@@ -591,7 +618,7 @@ const logger = getLogger(["split-view"]);
             c.close.title = "칸 닫기";
             c.close.setAttribute("aria-label", "칸 닫기");
             c.close.addEventListener("click", () => set(cols.filter((x) => x !== id)));
-            head.append(c.pos, c.avatar, c.name, c.live, c.stt, c.close);
+            head.append(c.pos, c.avatar, c.name, c.stat, c.live, c.stt, c.close);
             c.el.append(head, c.body);
             columns.set(id, c);
             grid!.append(c.el);
@@ -773,6 +800,7 @@ const logger = getLogger(["split-view"]);
             mount,
             unmount,
             place,
+            restat,
             set,
             gesture,
             navigated,
@@ -879,7 +907,10 @@ const logger = getLogger(["split-view"]);
             const isHost = cbSplit.isHost();
             if (isHost && boot.ready && !host.mounted() && document.body) host.mount();
             else if (!isHost && host.mounted()) host.unmount();
-            if (isHost) host.place();
+            if (isHost) {
+                host.place();
+                host.restat();
+            }
             decorateSidebar();
         } catch (error) {
             logger.error`tick failed ${location.href} ${error}`;
