@@ -147,7 +147,13 @@ const logger = getLogger(["split-view"]);
                 flex: none !important; width: 100% !important; height: auto !important; min-height: 0 !important;
                 max-width: none !important; min-width: 0 !important; overflow: hidden !important; padding: 0 !important; margin: 0 !important;
             }
-            #layout-body main > :not(:first-child), #layout-body main > :first-child > :not(:first-child) { display: none !important; }
+            /* main's second child is the channel row with Chzzk's follow, subscribe and gift-subscription buttons. One
+               :not() list keeps this rule less specific than ambient-light's canvas rule, which must still win. */
+            #layout-body main > :not(:first-child, [class*="_details_"]), #layout-body main > :first-child > :not(:first-child) { display: none !important; }
+            /* The column header already shows the avatar; without it the buttons fit a narrow column on one line. */
+            #layout-body main > [class*="_details_"] { padding-bottom: 12px !important; }
+            #layout-body main > [class*="_details_"] [class*="_thumbnail_"], #layout-body main > [class*="_details_"] [class*="_nudge_"]:empty { display: none !important; }
+            #layout-body main > [class*="_details_"] button { white-space: nowrap !important; }
             #layout-body main > :first-child, #layout-body main > :first-child > :first-child { width: 100% !important; max-width: none !important; }
             /* Chzzk's wide view mode makes the player box 100vh tall: the video letterboxes inside it while the
                controls and captions anchor to the box, off the picture. The 16:9 box keeps them on it. */
@@ -162,7 +168,12 @@ const logger = getLogger(["split-view"]);
                     flex: 1 1 0 !important; height: 100% !important; display: flex !important; flex-direction: column !important;
                     justify-content: center !important; background: #000 !important;
                 }
-                #layout-body main > :first-child { width: min(100%, calc(100vh * 16 / 9)) !important; margin: 0 auto !important; }
+                /* The player takes the height the channel row leaves and the largest 16:9 box that fits in it. */
+                #layout-body main > :first-child {
+                    flex: 1 1 0 !important; min-height: 0 !important; container-type: size !important;
+                    display: flex !important; flex-direction: column !important; justify-content: center !important;
+                }
+                #layout-body main > :first-child > :first-child { width: min(100cqw, 100cqh * 16 / 9) !important; margin: 0 auto !important; }
                 #aside-chatting { flex: none !important; width: 353px !important; height: 100% !important; }
             }
         `);
