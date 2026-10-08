@@ -148,8 +148,7 @@ const logger = getLogger(["split-view"]);
                 flex: none !important; width: 100% !important; height: auto !important; min-height: 0 !important;
                 max-width: none !important; min-width: 0 !important; overflow: hidden !important; padding: 0 !important; margin: 0 !important;
             }
-            /* main's second child is the channel row with Chzzk's follow, subscribe and gift-subscription buttons. One
-               :not() list keeps this rule less specific than ambient-light's canvas rule, which must still win. */
+            /* main's second child is the channel row with Chzzk's follow, subscribe and gift-subscription buttons. */
             #layout-body main > :not(:first-child, [class*="_details_"]), #layout-body main > :first-child > :not(:first-child) { display: none !important; }
             /* The column header already shows the avatar, name and follower count, so the row keeps only the buttons,
                right-aligned like Chzzk's own. Its title block above is hidden, so the row takes that block's padding. */

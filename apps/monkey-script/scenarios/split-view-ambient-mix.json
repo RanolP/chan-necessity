@@ -1,0 +1,86 @@
+[
+  [
+    "set",
+    "viewport",
+    "1600",
+    "900"
+  ],
+  [
+    "open",
+    "https://chzzk.naver.com/live/75cbf189b3bb8f9f687d2aca0d0a382b?cb-split=c7ded8ea6b0605d3c78e18650d2df83b,64d76089fba26b180d9c9e48a32600d9"
+  ],
+  [
+    "wait",
+    "--timeout",
+    "60000",
+    "--fn",
+    "[...document.querySelectorAll('.cb-split-body > iframe')].length === 3 && [...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3 && getComputedStyle(f.contentDocument.querySelector('#header')).display === 'none')"
+  ],
+  [
+    "eval",
+    "document.querySelector('.cb-split-body > iframe').contentWindow.GM_setValue('split.ambient', true); 'split.ambient = true'"
+  ],
+  [
+    "wait",
+    "4000"
+  ],
+  [
+    "eval",
+    "// Three narrow columns: one glow per column on the split page's layer (screen blend, centred on its picture),\n// every column and frame page transparent so the light reaches the 8px gaps and the bands under the players.\n// For the ambient-light scenarios: the split page's light layer (its box against the grid's, the loop's stats, and each\n// glow's box and blend mode), then per column whether its frame lets the light through (column, frame page and <main>\n// backgrounds, transparent while on), Chzzk's view mode, the picture's box in page coordinates (each glow sits on one),\n// and the frame's own loop, which now draws only the chat panel's canvas (a glow canvas in <main> is the old design).\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const layer = document.querySelector(\".cb-ambient-layer\");\n  return JSON.stringify({\n    on: document.documentElement.classList.contains(\"cb-ambient-on\"), host: window.ChzzkBestAmbient?.stats() ?? null,\n    layer: box(layer), grid: box(document.querySelector(\".cb-split-grid\")),\n    glows: [...(layer?.children ?? [])].map((c) => ({ box: box(c), blend: getComputedStyle(c).mixBlendMode })),\n    cols: [...document.querySelectorAll(\".cb-split-col\")].map((c) => {\n      const f = c.querySelector(\".cb-split-body > iframe\"), w = f?.contentWindow, d = f?.contentDocument, main = d?.querySelector(\"#layout-body main\");\n      const fr = f?.getBoundingClientRect(), vr = d?.querySelector(\"video\")?.getBoundingClientRect();\n      const bg = (e) => (e ? w.getComputedStyle(e).backgroundColor : null);\n      return {\n        col: c.dataset.id.slice(0, 8), colBg: getComputedStyle(c).backgroundColor, wide: /_is_large_/.test(main?.className ?? \"\"),\n        video: fr && vr ? [fr.x + vr.x, fr.y + vr.y, vr.width, vr.height].map(Math.round) : null,\n        frameOn: d?.documentElement.classList.contains(\"cb-ambient-on\") ?? null,\n        bg: d ? { html: bg(d.documentElement), body: bg(d.body), main: bg(main), aside: bg(d.querySelector(\"#aside-chatting\")) } : null,\n        mainCanvas: !!main?.querySelector(\":scope > canvas\"), frameLoop: w?.ChzzkBestAmbient?.stats() ?? null,\n      };\n    }),\n  });\n})()\n"
+  ],
+  [
+    "set",
+    "viewport",
+    "2560",
+    "1100"
+  ],
+  [
+    "eval",
+    "ChzzkBestSplit.set(['c7ded8ea6b0605d3c78e18650d2df83b', '64d76089fba26b180d9c9e48a32600d9']); 'two columns'"
+  ],
+  [
+    "wait",
+    "--timeout",
+    "60000",
+    "--fn",
+    "[...document.querySelectorAll('.cb-split-body > iframe')].length === 2 && [...document.querySelectorAll('.cb-split-body > iframe')].every((f) => f.contentDocument?.querySelector('video')?.readyState >= 3 && getComputedStyle(f.contentDocument.querySelector('#header')).display === 'none')"
+  ],
+  [
+    "wait",
+    "4000"
+  ],
+  [
+    "eval",
+    "// Two wide frames (chat beside the player): <main>'s wide-frame black must give way to the light as well.\n// For the ambient-light scenarios: the split page's light layer (its box against the grid's, the loop's stats, and each\n// glow's box and blend mode), then per column whether its frame lets the light through (column, frame page and <main>\n// backgrounds, transparent while on), Chzzk's view mode, the picture's box in page coordinates (each glow sits on one),\n// and the frame's own loop, which now draws only the chat panel's canvas (a glow canvas in <main> is the old design).\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const layer = document.querySelector(\".cb-ambient-layer\");\n  return JSON.stringify({\n    on: document.documentElement.classList.contains(\"cb-ambient-on\"), host: window.ChzzkBestAmbient?.stats() ?? null,\n    layer: box(layer), grid: box(document.querySelector(\".cb-split-grid\")),\n    glows: [...(layer?.children ?? [])].map((c) => ({ box: box(c), blend: getComputedStyle(c).mixBlendMode })),\n    cols: [...document.querySelectorAll(\".cb-split-col\")].map((c) => {\n      const f = c.querySelector(\".cb-split-body > iframe\"), w = f?.contentWindow, d = f?.contentDocument, main = d?.querySelector(\"#layout-body main\");\n      const fr = f?.getBoundingClientRect(), vr = d?.querySelector(\"video\")?.getBoundingClientRect();\n      const bg = (e) => (e ? w.getComputedStyle(e).backgroundColor : null);\n      return {\n        col: c.dataset.id.slice(0, 8), colBg: getComputedStyle(c).backgroundColor, wide: /_is_large_/.test(main?.className ?? \"\"),\n        video: fr && vr ? [fr.x + vr.x, fr.y + vr.y, vr.width, vr.height].map(Math.round) : null,\n        frameOn: d?.documentElement.classList.contains(\"cb-ambient-on\") ?? null,\n        bg: d ? { html: bg(d.documentElement), body: bg(d.body), main: bg(main), aside: bg(d.querySelector(\"#aside-chatting\")) } : null,\n        mainCanvas: !!main?.querySelector(\":scope > canvas\"), frameLoop: w?.ChzzkBestAmbient?.stats() ?? null,\n      };\n    }),\n  });\n})()\n"
+  ],
+  [
+    "eval",
+    "document.querySelector('.cb-split-body > iframe').contentWindow.GM_setValue('split.ambient', false); 'split.ambient = false'"
+  ],
+  [
+    "wait",
+    "2500"
+  ],
+  [
+    "eval",
+    "// Off: no layer, and the original opaque column (--cbs-panel), frame body and chat backgrounds.\n// For the ambient-light scenarios: the split page's light layer (its box against the grid's, the loop's stats, and each\n// glow's box and blend mode), then per column whether its frame lets the light through (column, frame page and <main>\n// backgrounds, transparent while on), Chzzk's view mode, the picture's box in page coordinates (each glow sits on one),\n// and the frame's own loop, which now draws only the chat panel's canvas (a glow canvas in <main> is the old design).\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const layer = document.querySelector(\".cb-ambient-layer\");\n  return JSON.stringify({\n    on: document.documentElement.classList.contains(\"cb-ambient-on\"), host: window.ChzzkBestAmbient?.stats() ?? null,\n    layer: box(layer), grid: box(document.querySelector(\".cb-split-grid\")),\n    glows: [...(layer?.children ?? [])].map((c) => ({ box: box(c), blend: getComputedStyle(c).mixBlendMode })),\n    cols: [...document.querySelectorAll(\".cb-split-col\")].map((c) => {\n      const f = c.querySelector(\".cb-split-body > iframe\"), w = f?.contentWindow, d = f?.contentDocument, main = d?.querySelector(\"#layout-body main\");\n      const fr = f?.getBoundingClientRect(), vr = d?.querySelector(\"video\")?.getBoundingClientRect();\n      const bg = (e) => (e ? w.getComputedStyle(e).backgroundColor : null);\n      return {\n        col: c.dataset.id.slice(0, 8), colBg: getComputedStyle(c).backgroundColor, wide: /_is_large_/.test(main?.className ?? \"\"),\n        video: fr && vr ? [fr.x + vr.x, fr.y + vr.y, vr.width, vr.height].map(Math.round) : null,\n        frameOn: d?.documentElement.classList.contains(\"cb-ambient-on\") ?? null,\n        bg: d ? { html: bg(d.documentElement), body: bg(d.body), main: bg(main), aside: bg(d.querySelector(\"#aside-chatting\")) } : null,\n        mainCanvas: !!main?.querySelector(\":scope > canvas\"), frameLoop: w?.ChzzkBestAmbient?.stats() ?? null,\n      };\n    }),\n  });\n})()\n"
+  ],
+  [
+    "eval",
+    "document.querySelector('.cb-split-body > iframe').contentWindow.GM_setValue('split.ambient', true); 'split.ambient = true'"
+  ],
+  [
+    "wait",
+    "3000"
+  ],
+  [
+    "eval",
+    "// For the ambient-light scenarios: the split page's light layer (its box against the grid's, the loop's stats, and each\n// glow's box and blend mode), then per column whether its frame lets the light through (column, frame page and <main>\n// backgrounds, transparent while on), Chzzk's view mode, the picture's box in page coordinates (each glow sits on one),\n// and the frame's own loop, which now draws only the chat panel's canvas (a glow canvas in <main> is the old design).\n(() => {\n  const box = (e) => (e ? [e.getBoundingClientRect()].map((r) => [r.x, r.y, r.width, r.height].map(Math.round))[0] : null);\n  const layer = document.querySelector(\".cb-ambient-layer\");\n  return JSON.stringify({\n    on: document.documentElement.classList.contains(\"cb-ambient-on\"), host: window.ChzzkBestAmbient?.stats() ?? null,\n    layer: box(layer), grid: box(document.querySelector(\".cb-split-grid\")),\n    glows: [...(layer?.children ?? [])].map((c) => ({ box: box(c), blend: getComputedStyle(c).mixBlendMode })),\n    cols: [...document.querySelectorAll(\".cb-split-col\")].map((c) => {\n      const f = c.querySelector(\".cb-split-body > iframe\"), w = f?.contentWindow, d = f?.contentDocument, main = d?.querySelector(\"#layout-body main\");\n      const fr = f?.getBoundingClientRect(), vr = d?.querySelector(\"video\")?.getBoundingClientRect();\n      const bg = (e) => (e ? w.getComputedStyle(e).backgroundColor : null);\n      return {\n        col: c.dataset.id.slice(0, 8), colBg: getComputedStyle(c).backgroundColor, wide: /_is_large_/.test(main?.className ?? \"\"),\n        video: fr && vr ? [fr.x + vr.x, fr.y + vr.y, vr.width, vr.height].map(Math.round) : null,\n        frameOn: d?.documentElement.classList.contains(\"cb-ambient-on\") ?? null,\n        bg: d ? { html: bg(d.documentElement), body: bg(d.body), main: bg(main), aside: bg(d.querySelector(\"#aside-chatting\")) } : null,\n        mainCanvas: !!main?.querySelector(\":scope > canvas\"), frameLoop: w?.ChzzkBestAmbient?.stats() ?? null,\n      };\n    }),\n  });\n})()\n"
+  ],
+  [
+    "set",
+    "viewport",
+    "1600",
+    "900"
+  ]
+]
