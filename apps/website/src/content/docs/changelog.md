@@ -5,6 +5,12 @@ description: 배포한 버전마다 사용자가 체감할 수 있는 변화를 
 
 새 버전이 나오면 위에 추가해요. 날짜는 한국 시간 기준이에요. 각 버전의 전체 커밋은 [GitHub 릴리스](https://github.com/RanolP/chan-necessity/releases)에서 볼 수 있어요.
 
+## 0.7.3 (2026-10-08)
+
+### 수정
+
+- [스플릿 뷰](/chan-necessity/features/split-view/) 칸에서 구독하기·구독 선물하기 버튼이 보이지 않던 문제 수정
+
 ## 0.7.2 (2026-10-08)
 
 ### 기능 추가
